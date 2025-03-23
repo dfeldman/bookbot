@@ -1,6 +1,6 @@
-# Document and Bot Systems API Documentation
+# Documentation for BookBot
 
-This document provides comprehensive API documentation for both the Document system and the Bot system, which work together to provide a powerful content generation platform.
+
 
 ## Table of Contents
 - [Document System](#document-system)
@@ -16,6 +16,20 @@ This document provides comprehensive API documentation for both the Document sys
 - [Global Configuration](#global-configuration)
 - [Error Handling](#error-handling)
 - [Complete Example Workflow](#complete-example-workflow)
+- [Command System](#command-system)
+   - [Command Base Class](#command-base-class)
+   - [CommandRegistry](#commandregistry)
+   - [Creating New Commands](#creating-new-commands)
+- [Action System](#action-system)
+   - [Action Class](#action-class)
+   - [Action Status](#action-status)
+   - [Action Management Functions](#action-management-functions)
+- [Outline Utilities](#outline-utilities)
+   - [Chapter Management](#chapter-management)
+   - [Tag Extraction](#tag-extraction)
+   - [Content Retrieval](#content-retrieval)
+
+
 
 ## Document System
 
@@ -696,4 +710,425 @@ print(f"Token usage: {chapter_doc.get_property('input_tokens')} in, {chapter_doc
 # Get JSON data
 json_data = chapter_doc.get_json_data()
 print(f"Document references: {json_data.get('doc_references', {})}")
+
+
+
+
+
+# Command System
+
+The Command system provides a standardized way to create, register, and execute operations within the BookBot system.
+
+## Command Base Class
+
+```python
+class Command(ABC):
+```
+
+The `Command` class is an abstract base class that all custom commands must inherit from. It provides the basic structure and interface for command execution.
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | `str` | The command name used to invoke it from the CLI |
+| `description` | `str` | A brief description of what the command does |
+| `usage` | `str` | Usage instructions shown in help text |
+
+#### Methods
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `__init__` | `doc_repo`, `api_key=None` | None | Initialize a Command with a document repository and API key |
+| `execute` | `args: List[str]` | `bool` | Execute the command with the given arguments |
+| `update_status` | `status: str` | None | Update the current status of the command |
+| `get_status` | None | `str` | Get the current status of the command |
+| `get_token_usage` | None | `Dict[str, int]` | Get the current token usage statistics |
+| `generate_content` | `**kwargs` | `str` | Generate content using the LLM, tracking token usage |
+| `get_arg_info` | None | `Dict[str, str]` | Class method to get information about required arguments |
+
+#### Example Implementation
+
+```python
+class WriteOutlineCommand(Command):
+    @property
+    def name(self) -> str:
+        return "write-outline"
+    
+    @property
+    def description(self) -> str:
+        return "Generate a book outline from an initial concept"
+    
+    @property
+    def usage(self) -> str:
+        return "write-outline <output_name> <initial_concept_doc>"
+    
+    @classmethod
+    def get_arg_info(cls) -> Dict[str, str]:
+        return {
+            "output_name": "Name for the generated outline document",
+            "initial_concept_doc": "Document containing the initial book concept"
+        }
+    
+    def execute(self, args: List[str]) -> bool:
+        # Validate arguments
+        if len(args) < 2:
+            logger.error(f"Not enough arguments. Usage: {self.usage}")
+            return False
+        
+        # Parse arguments
+        outline_name = args[0]
+        concept_doc_name = args[1]
+        
+        # Update status
+        self.update_status(f"Starting to write outline {outline_name}")
+        
+        # Get required document
+        concept_doc = self.doc_repo.get_doc(concept_doc_name)
+        if not concept_doc:
+            logger.error(f"Concept document '{concept_doc_name}' not found")
+            return False
+        
+        # Set up template variables
+        template_vars = {
+            "initial": concept_doc
+        }
+        
+        # Generate the outline
+        self.update_status("Generating outline content")
+        try:
+            content = self.generate_content(
+                output_doc_name=outline_name,
+                prompt_doc_name="bot_outliner",  # Uses the outliner bot
+                template_vars=template_vars,
+                command=f"write_outline_{outline_name}"
+            )
+            
+            self.update_status("Successfully wrote outline")
+            return True
+            
+        except Exception as e:
+            self.update_status(f"Error generating outline: {str(e)}")
+            return False
+```
+
+### CommandRegistry
+
+```python
+class CommandRegistry:
+```
+
+The `CommandRegistry` manages command registration and creation, allowing command discovery and instantiation.
+
+#### Methods
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `register` | `command_class: Type[Command]` | None | Register a command class |
+| `get_command_class` | `name: str` | `Optional[Type[Command]]` | Get a command class by name |
+| `create_command` | `name: str`, `doc_repo`, `api_key=None` | `Optional[Command]` | Create a command instance by name |
+| `get_all_commands` | None | `Dict[str, Dict[str, Any]]` | Get information about all registered commands |
+
+#### Example Usage
+
+```python
+# Register a custom command
+CommandRegistry.register(WriteOutlineCommand)
+
+# Create a command instance
+doc_repo = DocRepo("./book_repo")
+outline_cmd = CommandRegistry.create_command("write-outline", doc_repo)
+
+# Execute command
+outline_cmd.execute(["my_outline", "initial_concept"])
+```
+
+### Creating New Commands
+
+To create a new command:
+
+1. **Create a new class** that inherits from `Command`
+2. **Implement required properties**: `name`, `description`, `usage`
+3. **Implement the `execute` method** with your command's logic
+4. **Implement `get_arg_info`** to define required arguments
+5. **Register your command** with `CommandRegistry.register(YourCommand)`
+
+Your command should:
+- Update its status regularly using `self.update_status()`
+- Track document input/output using the Action system
+- Handle errors gracefully
+- Return `True` for success or `False` for failure
+
+# Action System
+
+The Action system tracks command execution, providing logging, history, and state management.
+
+### Action Class
+
+```python
+class Action:
+```
+
+The `Action` class represents a running `Command` with metadata, tracking execution progress and results.
+
+#### Methods
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `__init__` | `command: Command`, `args: List[str]`, `actions_dir=DEFAULT_ACTIONS_DIR` | None | Initialize an Action |
+| `update_state_file` | None | None | Update the state file with current action information |
+| `record_input_doc` | `doc_name: str` | None | Record an input document used by this action |
+| `record_output_doc` | `doc_name: str` | None | Record an output document produced by this action |
+| `save_log` | None | None | Save the action log to a JSON file |
+| `run` | None | `bool` | Run the command and track its execution |
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `command` | `Command` | The command being executed |
+| `args` | `List[str]` | Command arguments |
+| `pid` | `int` | Process ID of the running action |
+| `start_time` | `str` | ISO-formatted start time |
+| `end_time` | `str` | ISO-formatted end time (or None if running) |
+| `status` | `str` | Current status (running, success, failure) |
+| `input_docs` | `List[str]` | List of input document names |
+| `output_docs` | `List[str]` | List of output document names |
+| `log_file` | `str` | Path to the log file |
+
+#### Example Usage
+
+```python
+# Create and run an action
+cmd = WriteOutlineCommand(doc_repo)
+action = Action(cmd, ["my_outline", "initial_concept"])
+success = action.run()
+```
+
+### Action Status
+
+```python
+class ActionStatus:
+```
+
+The `ActionStatus` class defines status values for Actions.
+
+#### Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `RUNNING` | `"running"` | Action is currently executing |
+| `SUCCESS` | `"success"` | Action completed successfully |
+| `FAILURE` | `"failure"` | Action failed or was interrupted |
+
+### Action Management Functions
+
+Several utility functions help manage action state and history:
+
+| Function | Parameters | Returns | Description |
+|----------|------------|---------|-------------|
+| `is_action_running` | None | `Optional[Dict[str, Any]]` | Check if an action is currently running |
+| `kill_running_action` | None | `bool` | Kill a currently running action |
+| `get_recent_actions` | `count=10`, `actions_dir=DEFAULT_ACTIONS_DIR` | `List[Dict[str, Any]]` | Get a list of recent actions |
+| `render_action_log_as_text` | `action_data: Dict[str, Any]` | `str` | Render an action log as formatted text |
+| `render_action_log_as_html` | `action_data: Dict[str, Any]` | `str` | Render an action log as HTML |
+
+#### Example Usage
+
+```python
+# Check if an action is running
+running_action = is_action_running()
+if running_action:
+    print(f"Action {running_action['command']} is currently running")
+    
+# Get recent action history
+recent_actions = get_recent_actions(5)
+for action in recent_actions:
+    print(f"{action['command']} ({action['status']})")
+    
+# Render action log details
+action_details = render_action_log_as_text(recent_actions[0])
+print(action_details)
+```
+
+## Outline Utilities
+
+The `outline_util` module provides functions for manipulating and extracting information from outlines, including chapter management and content retrieval.
+
+### Chapter Management
+
+| Function | Parameters | Returns | Description |
+|----------|------------|---------|-------------|
+| `renumber_chapters` | `outline_text: str` | `str` | Renumber all chapters in the outline sequentially |
+| `count_chapters` | `outline_text: str` | `int` | Count the number of chapters in the outline |
+
+#### Example Usage
+
+```python
+# Get the outline text
+outline_doc = doc_repo.get_doc("my_outline")
+outline_text = outline_doc.get_text()
+
+# Count chapters
+chapter_count = outline_util.count_chapters(outline_text)
+print(f"The outline contains {chapter_count} chapters")
+
+# Renumber chapters
+fixed_outline = outline_util.renumber_chapters(outline_text)
+outline_doc.update_text(fixed_outline)
+```
+
+### Tag Extraction
+
+| Function | Parameters | Returns | Description |
+|----------|------------|---------|-------------|
+| `extract_tags` | `chapter_heading: str` | `Tuple[int, Set[str]]` | Extract the chapter number and tags from a chapter heading |
+| `get_character_profiles` | `character_text: str`, `tags: Set[str]` | `Dict[str, str]` | Extract character profiles for specified tags |
+| `get_setting_profiles` | `setting_text: str`, `tags: Set[str]` | `Dict[str, str]` | Extract setting profiles for specified tags |
+
+#### Example Usage
+
+```python
+# Extract tags from a chapter heading
+chapter_heading = "## Chapter 3: The Meeting #john #mary #cafe"
+chapter_num, tags = outline_util.extract_tags(chapter_heading)
+print(f"Chapter {chapter_num} involves tags: {tags}")
+
+# Get character profiles for these tags
+characters_doc = doc_repo.get_doc("characters")
+character_text = characters_doc.get_text()
+profiles = outline_util.get_character_profiles(character_text, tags)
+
+for tag, profile in profiles.items():
+    print(f"Character {tag}:\n{profile[:100]}...")
+```
+
+### Content Retrieval
+
+| Function | Parameters | Returns | Description |
+|----------|------------|---------|-------------|
+| `find_chapter_heading` | `outline_text: str`, `chapter_num: int` | `Optional[str]` | Find the heading for a specific chapter |
+| `find_chapter_content` | `outline_text: str`, `chapter_num: int` | `Optional[Tuple[str, str, str]]` | Find content for a chapter (heading, content, preceding section) |
+| `get_chapter_content` | `outline_text: str`, `chapter_num: int`, `character_text: str`, `setting_text: str` | `Dict[str, str]` | Get complete content needed to write a chapter |
+
+#### Example Usage
+
+```python
+# Get all content needed to write Chapter 3
+chapter_content = outline_util.get_chapter_content(
+    outline_text,
+    3,
+    character_text,
+    setting_text
+)
+
+print("Chapter heading:", chapter_content['chapter_heading'])
+print("Chapter content:", chapter_content['chapter_content'][:100], "...")
+print("Characters:", chapter_content['characters'][:100], "...")
+print("Settings:", chapter_content['settings'][:100], "...")
+
+# Use all content for LLM prompt
+all_content = chapter_content['all_content']
+```
+
+## Creating a Complete Write-Outline Command
+
+Here's a full example of creating a command to write an outline from an initial concept:
+
+```python
+class WriteOutlineCommand(Command):
+    """Command to generate a full book outline from an initial concept."""
+    
+    @property
+    def name(self) -> str:
+        return "write-outline"
+    
+    @property
+    def description(self) -> str:
+        return "Generate a book outline from an initial concept"
+    
+    @property
+    def usage(self) -> str:
+        return "write-outline <output_name> <initial_concept_doc> [<sections_count>]"
+    
+    @classmethod
+    def get_arg_info(cls) -> Dict[str, str]:
+        return {
+            "output_name": "Name for the generated outline document",
+            "initial_concept_doc": "Document containing the initial book concept",
+            "sections_count": "Optional number of sections (default: 3)"
+        }
+    
+    def execute(self, args: List[str]) -> bool:
+        # Validate arguments
+        if len(args) < 2:
+            logger.error(f"Not enough arguments. Usage: {self.usage}")
+            return False
+        
+        # Parse arguments
+        outline_name = args[0]
+        concept_doc_name = args[1]
+        sections_count = int(args[2]) if len(args) > 2 else 3
+        
+        # Update status
+        self.update_status(f"Starting to write outline {outline_name} with {sections_count} sections")
+        
+        # Get required document
+        concept_doc = self.doc_repo.get_doc(concept_doc_name)
+        if not concept_doc:
+            logger.error(f"Concept document '{concept_doc_name}' not found")
+            return False
+            
+        # Record input document (for the Action log)
+        self.action.record_input_doc(concept_doc_name)
+        
+        # Set up template variables
+        template_vars = {
+            "initial": concept_doc,
+            "sections_count": sections_count
+        }
+        
+        # Generate the outline
+        self.update_status("Generating outline content")
+        try:
+            content = self.generate_content(
+                output_doc_name=outline_name,
+                prompt_doc_name="bot_outliner",
+                template_vars=template_vars,
+                command=f"write_outline_{outline_name}"
+            )
+            
+            # Record output document
+            self.action.record_output_doc(outline_name)
+            
+            # Renumber chapters to ensure consistency
+            outline_doc = self.doc_repo.get_doc(outline_name)
+            if outline_doc:
+                fixed_outline = outline_util.renumber_chapters(outline_doc.get_text())
+                outline_doc.update_text(fixed_outline)
+                
+                # Count chapters for information
+                chapter_count = outline_util.count_chapters(fixed_outline)
+                self.update_status(f"Successfully wrote outline with {chapter_count} chapters")
+            
+            return True
+            
+        except Exception as e:
+            self.update_status(f"Error generating outline: {str(e)}")
+            logger.error(traceback.format_exc())
+            return False
+```
+
+To use this command:
+
+1. Save it in your commands module (e.g., `commands.py`)
+2. Register it with `CommandRegistry.register(WriteOutlineCommand)`
+3. Run it from the CLI: `python cli.py write-outline my_outline initial_concept 5`
+
+The command will:
+1. Read the initial concept document
+2. Generate an outline using the outliner bot
+3. Renumber chapters to ensure consistency
+4. Report the number of chapters generated
+5. Record all inputs, outputs, and token usage
 ```
