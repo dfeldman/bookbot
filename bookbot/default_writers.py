@@ -68,11 +68,11 @@ max_continuations: 10
 
 You are writing a chapter based on the following outline:
 
-{{{outline}}}
+{{outline}}
 
 Now, write the following scene:
 
-{{{scene}}}
+{{scene}}
 
 Write in first-person past tense as directed in your system prompt.
 
@@ -80,8 +80,8 @@ Write in first-person past tense as directed in your system prompt.
 
 Continue writing the scene based on what you've already written and the following information:
 
-Outline: {{{outline}}}
-Scene: {{{scene}}}
+Outline: {{outline}}
+Scene: {{scene}}
 
 Remember to maintain first-person past tense narration throughout.
 Current progress: {{current_words}} words out of {{expected_words}} expected words.

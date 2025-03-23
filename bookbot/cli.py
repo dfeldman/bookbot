@@ -16,9 +16,10 @@ from typing import List, Dict, Any, Optional
 import importlib
 import json
 import inspect
+import default_other_bots
 
 # Import command and action handling
-from actions import (
+from action import (
     Command, Action, CommandRegistry, is_action_running, 
     kill_running_action, get_recent_actions, render_action_log_as_text,
     WriteChapterCommand
@@ -362,7 +363,6 @@ def execute_command(args: argparse.Namespace):
         if args.verbose:
             traceback.print_exc()
 
-
 def setup_argument_parser():
     """
     Set up the argument parser.
@@ -391,30 +391,143 @@ Examples:
     parser.add_argument('--dry-run', action='store_true', help='Run in dry-run mode without making API calls')
     parser.add_argument('--cheap-mode', action='store_true', help='Use cheaper LLM models')
     
-    # Set up subparsers for commands
-    subparsers = parser.add_subparsers(dest='action', help='Action to perform')
+    # Set up subparsers for all commands (both built-in and custom)
+    subparsers = parser.add_subparsers(dest='command', help='Command to execute')
     
-    # List commands
+    # Add built-in commands
     list_parser = subparsers.add_parser('list', help='List available commands')
     list_parser.set_defaults(func=list_commands)
     
-    # Command history
     history_parser = subparsers.add_parser('history', help='Show command history')
     history_parser.add_argument('index', nargs='?', help='Index of the action to show details for')
     history_parser.add_argument('-c', '--count', type=int, default=10, help='Number of actions to show (default: 10)')
     history_parser.set_defaults(func=show_history_detail)
     
-    # Kill action
     kill_parser = subparsers.add_parser('kill', help='Kill a running action')
     kill_parser.add_argument('-f', '--force', action='store_true', help='Kill without confirmation')
     kill_parser.set_defaults(func=kill_action)
     
-    # If no action is specified, the first positional argument is assumed to be a command
-    parser.add_argument('command', nargs='?', help='Command to run')
-    parser.add_argument('args', nargs='*', help='Command arguments')
+    # Dynamically add custom commands from the registry
+    commands = load_commands()
+    for cmd_name, cmd_info in commands.items():
+        cmd_parser = subparsers.add_parser(cmd_name, help=cmd_info.get('description', 'No description available'))
+        
+        # Get the command class to retrieve argument info
+        cmd_class = CommandRegistry.get_command_class(cmd_name)
+        if cmd_class and hasattr(cmd_class, 'get_arg_info'):
+            arg_info = cmd_class.get_arg_info()
+            # Use the actual argument names from the command class
+            for arg_name, arg_desc in arg_info.items():
+                # Convert snake_case to kebab-case for command line args
+                cli_arg_name = arg_name.replace('_', '-')
+                # Make arguments optional if they have "optional" in their description (case insensitive)
+                is_optional = "optional" in arg_desc.lower()
+                if is_optional:
+                    cmd_parser.add_argument(f'--{cli_arg_name}', help=arg_desc)
+                else:
+                    # For positional arguments, don't set dest - argparse handles this automatically
+                    cmd_parser.add_argument(arg_name, help=arg_desc)
+        
+        # Set function to execute_command
+        cmd_parser.set_defaults(func=execute_command, command_name=cmd_name)
     
     return parser
 
+
+def execute_command(args: argparse.Namespace):
+    """
+    Execute a command with the provided arguments.
+    
+    Args:
+        args: Command-line arguments
+    """
+    # Check if a command is already running
+    if is_action_running():
+        if not hasattr(args, 'force') or not args.force:
+            check_running_action()
+            return
+        else:
+            # Force kill the running action if --force is used
+            kill_running_action()
+    
+    # Get the command name
+    command_name = args.command_name if hasattr(args, 'command_name') else args.command
+    
+    # Load all available commands
+    available_commands = load_commands()
+    
+    # Check if the command exists
+    if command_name not in available_commands:
+        print(f"Unknown command: {command_name}")
+        print("\nAvailable commands:")
+        for cmd in sorted(available_commands.keys()):
+            print(f"  {cmd}")
+        return
+    
+    # Get command info
+    command_info = available_commands[command_name]
+    
+    # Create command instance
+    try:
+        # Initialize document repository
+        doc_repo = DocRepo(args.repo_path)
+        
+        # Create command instance
+        command = CommandRegistry.create_command(command_name, doc_repo, args.api_key)
+        
+        if not command:
+            print(f"Failed to create command instance for {command_name}")
+            return
+        
+        # Collect arguments
+        command_args = []
+        arg_info = command.get_arg_info() if hasattr(command, 'get_arg_info') else {}
+        
+        # Check for missing required arguments
+        missing_args = []
+        for arg_name, arg_desc in arg_info.items():
+            is_optional = "optional" in arg_desc.lower()
+            if not is_optional and (not hasattr(args, arg_name) or getattr(args, arg_name) is None):
+                missing_args.append((arg_name, arg_desc))
+        
+        if missing_args:
+            print(f"Missing required arguments for command '{command_name}':")
+            for name, desc in missing_args:
+                print(f"  {name}: {desc}")
+            print(f"\nUsage: {command.usage if hasattr(command, 'usage') else f'cli.py {command_name} [ARGUMENTS]'}")
+            return
+        
+        # Collect arguments in the correct order
+        for arg_name in arg_info.keys():
+            if hasattr(args, arg_name):
+                command_args.append(getattr(args, arg_name))
+        
+        # Create action
+        action = Action(command, command_args)
+        
+        # Set up signal handlers for graceful interruption
+        signal.signal(signal.SIGINT, lambda signum, frame: handle_interrupt(action, signum, frame))
+        signal.signal(signal.SIGTERM, lambda signum, frame: handle_interrupt(action, signum, frame))
+        
+        # Run the action
+        success = action.run()
+        
+        if success:
+            print(f"\nCommand '{command_name}' completed successfully.")
+            
+            # Show token usage
+            token_usage = command.get_token_usage()
+            if token_usage:
+                print("\nToken usage:")
+                print(f"  Input tokens: {token_usage.get('input_tokens', 0)}")
+                print(f"  Output tokens: {token_usage.get('output_tokens', 0)}")
+        else:
+            print(f"\nCommand '{command_name}' failed.")
+        
+    except Exception as e:
+        print(f"Error executing command '{command_name}': {str(e)}")
+        if args.verbose:
+            traceback.print_exc()
 
 def configure_environment(args: argparse.Namespace):
     """
@@ -445,6 +558,7 @@ def configure_environment(args: argparse.Namespace):
         logger.warning("No OpenRouter API key provided. Set the OPENROUTER_API_KEY environment variable or use --api-key")
 
 
+
 def main() -> int:
     """
     Main entry point for the CLI.
@@ -459,18 +573,19 @@ def main() -> int:
     # Configure environment
     configure_environment(args)
     
+    #Initialize the DocRepo with starting bots
+    default_other_bots.main()
+
     try:
-        if args.action:
-            # Execute the function associated with the specified action
+        # If a command is specified (either built-in or custom), execute its function
+        if hasattr(args, 'func'):
             args.func(args)
-        elif args.command:
-            # Execute the specified command
-            execute_command(args)
-        else:
-            # No action or command specified, show help
-            parser.print_help()
+            return 0
         
-        return 0
+        # No command specified, show help
+        else:
+            parser.print_help()
+            return 0
         
     except KeyboardInterrupt:
         print("\nOperation cancelled by user.")
