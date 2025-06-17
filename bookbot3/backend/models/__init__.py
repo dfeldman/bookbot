@@ -15,6 +15,7 @@ from sqlalchemy import tuple_
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Column, String, Integer, Float, Boolean, Text, DateTime, ForeignKey, Index
 from sqlalchemy.dialects.sqlite import JSON
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import relationship
 
 db = SQLAlchemy()
@@ -235,7 +236,7 @@ class Job(db.Model):
     job_id = Column(String(36), primary_key=True, default=generate_uuid)
     book_id = Column(String(36), ForeignKey('books.book_id'), nullable=False)
     job_type = Column(String(50), nullable=False)
-    props = Column(JSON, nullable=False, default=dict)
+    props = Column(MutableDict.as_mutable(JSON), nullable=False, default=dict)
     state = Column(String(20), nullable=False, default='waiting')  # waiting, running, complete, error, cancelled
     created_at = Column(DateTime, default=utcnow)
     started_at = Column(DateTime, nullable=True)
@@ -251,6 +252,17 @@ class Job(db.Model):
         Index('idx_job_state', 'state'),
         Index('idx_job_type', 'job_type'),
     )
+
+    @property
+    def total_cost(self) -> float:
+        """Calculate the total LLM cost for this job from its logs."""
+        cost = 0.0
+        for log_entry in self.logs:
+            if log_entry.log_level == 'LLM' and isinstance(log_entry.props, dict):
+                entry_cost = log_entry.props.get('llm_cost')
+                if isinstance(entry_cost, (int, float)):
+                    cost += entry_cost
+        return round(cost, 6)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert job to dictionary."""
@@ -260,6 +272,7 @@ class Job(db.Model):
             'job_type': self.job_type,
             'props': self.props,
             'state': self.state,
+            'total_cost': self.total_cost,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'started_at': self.started_at.isoformat() if self.started_at else None,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None
@@ -276,6 +289,7 @@ class JobLog(db.Model):
     log_entry = Column(Text, nullable=False)
     log_level = Column(String(10), default='INFO')
     created_at = Column(DateTime, default=utcnow)
+    props = Column(JSON, nullable=False, default=dict)
     
     # Relationships
     job = relationship("Job", back_populates="logs")
@@ -293,5 +307,6 @@ class JobLog(db.Model):
             'job_id': self.job_id,
             'log_entry': self.log_entry,
             'log_level': self.log_level,
+            'props': self.props, # Added props to to_dict
             'created_at': self.created_at.isoformat() if self.created_at else None
         }

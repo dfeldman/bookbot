@@ -4,8 +4,9 @@ Fake LLM implementation for BookBot.
 This module provides a fake LLM that generates lorem ipsum text
 for testing and development purposes.
 """
-
+import os
 import random
+import re
 import time
 from typing import Optional, Callable
 
@@ -31,24 +32,33 @@ class FakeLLMCall:
         model: str,
         api_key: str,
         target_word_count: int,
+        prompt: Optional[str] = None,  # Added prompt here
+        system_prompt: Optional[str] = None,  # Added system_prompt
+        llm_params: Optional[dict] = None,  # Added generic params
         log_callback: Optional[Callable[[str], None]] = None
     ):
         """
         Initialize a fake LLM call.
-        
+
         Args:
             model: The model name (ignored in fake implementation)
             api_key: The API key (ignored in fake implementation)
             target_word_count: Target number of words to generate
+            prompt: The user prompt for the LLM.
+            system_prompt: The system prompt for the LLM.
+            llm_params: Other parameters for the LLM call (e.g., temperature).
             log_callback: Optional callback for logging progress
         """
         self.model = model
         self.api_key = api_key
         self.target_word_count = target_word_count
+        self.prompt = prompt  # Store prompt
+        self.system_prompt = system_prompt  # Store system_prompt
+        self.llm_params = llm_params if llm_params is not None else {}  # Store other params
         self.log_callback = log_callback
-        
-        # Optional prompt for more intelligent generation
-        self.prompt: Optional[str] = None
+
+        # Optional prompt for more intelligent generation - this line is now covered by self.prompt
+        # self.prompt: Optional[str] = None
         
         # Results (set after execute())
         self.output_text: Optional[str] = None
@@ -72,38 +82,54 @@ class FakeLLMCall:
             if self.log_callback:
                 self.log_callback(f"Starting fake LLM generation for {self.target_word_count} words")
             
-            # Simulate some processing time
-            time.sleep(random.uniform(0.5, 2.0))
-            
-            # Generate content based on prompt if available
-            if hasattr(self, 'prompt') and self.prompt:
-                self.output_text = self._generate_smart_content()
-                words = self.output_text.split()  # For token counting
-            else:
-                # Generate lorem ipsum text
-                words = []
-                for _ in range(self.target_word_count):
-                    words.append(random.choice(self.LOREM_WORDS))
-                    
-                    # Add some punctuation occasionally
-                    if random.random() < 0.1:
-                        words[-1] += random.choice(['.', ',', '!', '?'])
-                    
-                    # Add paragraph breaks occasionally
-                    if len(words) > 20 and random.random() < 0.05:
-                        words.append('\n\n')
+            # Simulate some processing time if not inside a unit test
+            if not "PYTEST_CURRENT_TEST" in os.environ:
+                custom_sleep = False
+                if self.prompt:
+                    match = re.search(r"seconds: (\d+)", self.prompt, re.IGNORECASE)
+                    if match:
+                        try:
+                            sleep_duration = int(match.group(1))
+                            if self.log_callback:
+                                self.log_callback(f"Prompt contains 'seconds: {sleep_duration}', sleeping for {sleep_duration} seconds.")
+                            time.sleep(sleep_duration)
+                            custom_sleep = True
+                        except ValueError:
+                            if self.log_callback:
+                                self.log_callback(f"Could not parse sleep duration from prompt: {match.group(1)}")
                 
-                self.output_text = ' '.join(words)
+                if not custom_sleep:
+                    time.sleep(random.uniform(0.5, 2.0))
             
-            # Simulate token counts and costs
-            self.input_tokens = random.randint(50, 200)
+            # Always attempt to generate smart content; _generate_smart_content will handle
+            # empty/generic prompts by falling back to _generate_structured_text.
+            self.output_text = self._generate_smart_content()
+            words = self.output_text.split()  # For token counting
+            
+            # Simulate token counts
+            input_text_for_token_calc = ""
+            if self.prompt:
+                input_text_for_token_calc += self.prompt
+            if self.system_prompt:
+                input_text_for_token_calc += (" " if input_text_for_token_calc else "") + self.system_prompt
+            
+            # Estimate tokens by splitting by space; add a small base if no input text
+            self.input_tokens = len(input_text_for_token_calc.split()) if input_text_for_token_calc.strip() else random.randint(10, 50)
             self.output_tokens = len(self.output_text.split())
-            self.cost = round((self.input_tokens * 0.00001 + self.output_tokens * 0.00002), 6)
-            self.stop_reason = "length" if len(words) >= self.target_word_count else "stop"
+            self.stop_reason = "completed"
+
+            # Simulate cost calculation (rates are placeholders)
+            # Cost in USD, e.g., $0.000001 per input token, $0.000005 per output token
+            simulated_input_token_cost_rate = 0.000001
+            simulated_output_token_cost_rate = 0.000005
+            self.cost = round((self.input_tokens * simulated_input_token_cost_rate) + \
+                              (self.output_tokens * simulated_output_token_cost_rate), 8)
+            
+            # Simulate execution time
+            self.execution_time = time.time() - start_time
             
             if self.log_callback:
-                self.log_callback(f"Generated {len(words)} words, cost: ${self.cost}")
-            
+                self.log_callback(f"Fake LLM generation complete. Output: {len(self.output_text)} chars, {self.output_tokens} tokens. Cost: ${self.cost:.6f}. Time: {self.execution_time:.2f}s")
             return True
             
         except Exception as e:
@@ -275,22 +301,47 @@ class FakeLLMCall:
         return "\n".join(content)
     
     def _generate_structured_text(self) -> str:
-        """Generate generic structured text."""
-        sections = [
-            "Introduction",
-            "Main Content",
-            "Development",
-            "Conclusion"
-        ]
+        """Generate generic structured text, incorporating mode, bot title, and original prompt if available."""
+        content_parts = []
+
+        # Try to get mode from llm_params passed by GenerateTextJob
+        mode = self.llm_params.get('mode')
+        if mode:
+            content_parts.append(f"Mode: {mode}")
+
+        # Use self.prompt (original chunk text) if available, otherwise use lorem ipsum sections
+        if self.prompt and self.prompt.strip():
+            content_parts.append(self.prompt)
+        else:
+            sections = [
+                "Introduction",
+                "Main Content",
+                "Development",
+                "Conclusion"
+            ]
+            lorem_section_content = []
+            for section in sections:
+                lorem_section_content.append(f"## {section}")
+                lorem_section_content.append("")
+                lorem_section_content.append("Lorem ipsum dolor sit amet, consectetur adipiscing elit. This section contains important information relevant to the overall structure and development of the content.")
+            content_parts.append("\n".join(lorem_section_content))
+
+        # Try to get bot title from llm_params (specifically bot_specific_props within it)
+        bot_specific_props = self.llm_params.get('bot_specific_props', {})
+        bot_title = bot_specific_props.get('title', 'Unknown Bot') # Default to 'Unknown Bot' if not found
+        # Ensure bot_title is a string, as it might be an object in some test setups
+        if not isinstance(bot_title, str):
+            # Attempt to extract common title attributes if it's an object
+            if hasattr(bot_title, 'title') and isinstance(getattr(bot_title, 'title'), str):
+                bot_title = getattr(bot_title, 'title')
+            elif hasattr(bot_title, 'name') and isinstance(getattr(bot_title, 'name'), str):
+                bot_title = getattr(bot_title, 'name')
+            else:
+                bot_title = 'Unknown Bot (from object)'
+
+        content_parts.append(f"Generated by {bot_title}")
         
-        content = []
-        for section in sections:
-            content.append(f"## {section}")
-            content.append("")
-            content.append("Lorem ipsum dolor sit amet, consectetur adipiscing elit. This section contains important information relevant to the overall structure and development of the content.")
-            content.append("")
-        
-        return "\n".join(content)
+        return "\n\n".join(filter(None, content_parts)) # Join with double newline, filter out empty strings
 
 
 def get_fake_api_token_status(api_key: str) -> dict:

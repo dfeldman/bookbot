@@ -55,6 +55,7 @@
             <option value="">All Levels</option>
             <option value="DEBUG">Debug</option>
             <option value="INFO">Info</option>
+            <option value="LLM">LLM</option> <!-- Added LLM -->
             <option value="WARN">Warning</option>
             <option value="ERROR">Error</option>
           </select>
@@ -133,6 +134,9 @@
           </div>
           <div class="log-content">
             <pre>{{ log.log_entry }}</pre>
+            <div v-if="log.log_level === 'LLM' && log.props && typeof log.props.llm_cost === 'number'" class="llm-cost-details">
+              <strong>LLM Call Cost:</strong> {{ formatCurrency(log.props.llm_cost) }}
+            </div>
           </div>
         </div>
       </div>
@@ -147,16 +151,31 @@ import { useBookStore, type Job } from '../stores/book'
 import { apiService } from '../services/api'
 
 interface JobLog {
-  id: number
-  job_id: string
-  log_entry: string
-  log_level: string
-  created_at: string
+  id: string;
+  job_id: string;
+  log_level: string;
+  log_entry: string;
+  created_at: string;
+  props?: { 
+    llm_cost?: number;
+    [key: string]: any; 
+  };
 }
 
 const route = useRoute()
 const router = useRouter()
 const bookStore = useBookStore()
+
+const formatCurrency = (value: number | null | undefined): string => {
+  if (value === null || typeof value === 'undefined' || Number.isNaN(value)) {
+    return 'N/A';
+  }
+  const numericValue = Number(value);
+  if (Number.isNaN(numericValue)) {
+    return 'N/A';
+  }
+  return `$${numericValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`;
+};
 
 // State
 const jobId = route.params.jobId as string
@@ -209,7 +228,7 @@ const logStats = computed(() => {
 // Methods
 async function loadJob() {
   try {
-    const response = await apiService.get(`/api/jobs/${jobId}`)
+    const response = await apiService.get(`/jobs/${jobId}`)
     job.value = response
   } catch (error) {
     console.error('Failed to load job:', error)
@@ -221,7 +240,7 @@ async function loadLogs() {
   loading.value = true
   
   try {
-    const response = await apiService.get(`/api/jobs/${jobId}/logs`)
+    const response = await apiService.get(`/jobs/${jobId}/logs`)
     logs.value = response.logs || []
     
     if (autoScroll.value) {
@@ -337,12 +356,16 @@ function formatDuration(job: Job): string {
 }
 
 function startAutoRefresh() {
-  // Only auto-refresh if job is still active
+  if (refreshInterval.value) return // Already running
+
   refreshInterval.value = window.setInterval(async () => {
-    if (job.value && (job.value.state === 'running' || job.value.state === 'waiting')) {
-      await loadLogs()
+    await refreshLogs() // This will call loadJob() and loadLogs()
+
+    // After refreshing, check the job's state
+    if (job.value && (job.value.state === 'complete' || job.value.state === 'error' || job.value.state === 'cancelled')) {
+      stopAutoRefresh()
     }
-  }, 3000) // Refresh every 3 seconds for active jobs
+  }, 2000) // Refresh every 2 seconds
 }
 
 function stopAutoRefresh() {
@@ -689,6 +712,17 @@ onUnmounted(() => {
   background: rgba(231, 76, 60, 0.1);
 }
 
+.log-entry.level-critical {
+  border-left-color: #e74c3c;
+  color: #ff7e70; 
+  background: rgba(231, 76, 60, 0.1);
+}
+
+.log-entry.level-llm {
+  border-left-color: #1abc9c; /* Teal */
+  background: rgba(26, 188, 156, 0.1);
+}
+
 .log-meta {
   display: flex;
   gap: 1rem;
@@ -709,6 +743,18 @@ onUnmounted(() => {
 .log-level.info { color: #3498db; }
 .log-level.warn { color: #f39c12; }
 .log-level.error { color: #e74c3c; }
+.log-level.critical { color: #ff7e70; }
+.log-level.llm { color: #1abc9c; } /* Teal */
+
+.llm-cost-details {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #bdc3c7; /* Lighter grey for less emphasis */
+}
+
+.llm-cost-details strong {
+  color: #16a085; /* Slightly darker teal */
+}
 
 .log-content {
   color: #ecf0f1;

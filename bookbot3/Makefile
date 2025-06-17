@@ -73,7 +73,8 @@ run-frontend:
 dev:
 	@echo "Starting development servers..."
 	@echo "Backend will run on http://localhost:5000"
-	@make run-backend
+	@make run-backend &
+	@make run-frontend
 
 # Testing
 test: test-backend

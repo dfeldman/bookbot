@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/api'
+import { useJobStore } from './jobStore' // Import jobStore
 
 export interface Book {
   book_id: string
@@ -57,6 +58,7 @@ export interface Job {
 }
 
 export const useBookStore = defineStore('book', () => {
+  const jobStore = useJobStore() // Get instance of jobStore
   // State
   const books = ref<Book[]>([])
   const currentBook = ref<Book | null>(null)
@@ -115,18 +117,22 @@ export const useBookStore = defineStore('book', () => {
       // Get the book to access its props
       const book = await apiService.getBook(bookId)
       
-      const job = await apiService.createJob(bookId, {
+      const jobPayload = {
         job_type: 'create_foundation',
         props: {
           brief: book.props.description || 'Generate a complete book foundation',
           style: book.props.style || 'professional'
         }
-      })
+      };
+      const job = await apiService.createJob(bookId, jobPayload);
+      
+      // Immediately after job creation is successful, trigger the indicator
+      jobStore.triggerStartingIndicator();
       
       // Add the job to the jobs array
-      jobs.value.push(job)
-      currentJob.value = job
-      return job
+      jobs.value.push(job);
+      currentJob.value = job;
+      return job;
     } catch (error) {
       console.error('Failed to start CreateFoundation job:', error)
       throw error

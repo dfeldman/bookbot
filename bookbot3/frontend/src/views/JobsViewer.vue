@@ -44,7 +44,8 @@
     <div v-else-if="jobs.length === 0" class="empty-state">
       <div class="empty-icon">📋</div>
       <h3>No Jobs Found</h3>
-      <p>{{ selectedBookId || selectedState ? 'No jobs match your current filters.' : 'No background jobs have been created yet.' }}</p>
+      <p v-if="selectedState || selectedBookId">No jobs match your current filters.</p>
+      <p v-else>There are no jobs in the system.</p>
     </div>
 
     <div v-else class="jobs-container">
@@ -69,6 +70,10 @@
           <div class="stat-number">{{ jobStats.error }}</div>
           <div class="stat-label">Failed</div>
         </div>
+        <div class="stat-card cost">
+          <div class="stat-number">{{ formatCurrency(grandTotalCost) }}</div>
+          <div class="stat-label">Total LLM Cost</div>
+        </div>
       </div>
 
       <div class="jobs-table">
@@ -78,6 +83,7 @@
           <div class="col-book">Book</div>
           <div class="col-created">Created</div>
           <div class="col-duration">Duration</div>
+          <div class="col-cost">Cost</div>
           <div class="col-actions">Actions</div>
         </div>
         
@@ -119,6 +125,10 @@
               <span class="pulse-dot"></span>
               Running...
             </div>
+          </div>
+          
+          <div class="col-cost">
+            {{ formatCurrency(job.total_cost) }}
           </div>
           
           <div class="col-actions" @click.stop>
@@ -163,6 +173,7 @@ const bookStore = useBookStore()
 // State
 const jobs = ref<Job[]>([])
 const loading = ref(false)
+const grandTotalCost = ref<number | null>(null)
 const selectedBookId = ref('')
 const selectedState = ref('')
 const autoRefreshInterval = ref<number | null>(null)
@@ -192,13 +203,13 @@ const jobStats = computed(() => {
 const sortedJobs = computed(() => {
   return [...jobs.value].sort((a, b) => {
     // Sort by state priority (running > waiting > error > complete > cancelled)
-    const statePriority = { running: 5, waiting: 4, error: 3, complete: 2, cancelled: 1 }
-    const aPriority = statePriority[a.state as keyof typeof statePriority] || 0
-    const bPriority = statePriority[b.state as keyof typeof statePriority] || 0
+    // const statePriority = { running: 5, waiting: 4, error: 3, complete: 2, cancelled: 1 }
+    // const aPriority = statePriority[a.state as keyof typeof statePriority] || 0
+    // const bPriority = statePriority[b.state as keyof typeof statePriority] || 0
     
-    if (aPriority !== bPriority) {
-      return bPriority - aPriority
-    }
+    // if (aPriority !== bPriority) {
+    //   return bPriority - aPriority
+    // }
     
     // Then by created_at (newest first)
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -208,27 +219,26 @@ const sortedJobs = computed(() => {
 // Methods
 async function loadJobs() {
   loading.value = true
-  
   try {
-    // Only load jobs if a book is selected
-    if (!selectedBookId.value) {
-      jobs.value = []
-      return
-    }
-    
-    const params = new URLSearchParams()
-    
+    const params: any = {}
     if (selectedState.value) {
-      params.append('state', selectedState.value)
+      params.state = selectedState.value
     }
-    
-    let url = `/api/books/${selectedBookId.value}/jobs`
-    if (params.toString()) {
-      url += `?${params.toString()}`
+
+    let response;
+    if (!selectedBookId.value) {
+      // Fetch all jobs if no specific book is selected
+      response = await apiService.getAllJobs(params)
+    } else {
+      // Fetch jobs for the selected book
+      response = await apiService.getJobs(selectedBookId.value, params)
     }
-    
-    const response = await apiService.get(url)
-    jobs.value = response.jobs || []
+
+    jobs.value = response.jobs.map((job: any) => ({
+      ...job,
+      created_at: new Date(job.created_at),
+      updated_at: new Date(job.updated_at)
+    }))
   } catch (error) {
     console.error('Failed to load jobs:', error)
     jobs.value = []
@@ -345,6 +355,23 @@ function formatDuration(job: Job): string {
   }
 }
 
+function formatCurrency(value: number | null | undefined): string {
+  if (value === null || typeof value === 'undefined' || Number.isNaN(value)) {
+    return 'N/A';
+  }
+  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`;
+}
+
+async function loadGrandTotalCost() {
+  try {
+    const data = await apiService.getTotalCostAllJobs();
+    grandTotalCost.value = data.total_cost;
+  } catch (error) {
+    console.error('Failed to load grand total cost:', error);
+    grandTotalCost.value = null;
+  }
+}
+
 function startAutoRefresh() {
   // Refresh every 5 seconds if there are active jobs
   autoRefreshInterval.value = window.setInterval(() => {
@@ -365,7 +392,11 @@ function stopAutoRefresh() {
 // Lifecycle
 onMounted(async () => {
   await bookStore.loadBooks()
-  await loadJobs()
+  // If no book is selected and there are books available, select the first one.
+  if (!selectedBookId.value && books.value.length > 0) {
+    selectedBookId.value = books.value[0].book_id
+  }
+  await loadJobs() // loadJobs now calls loadGrandTotalCost internally
   startAutoRefresh()
 })
 
@@ -519,6 +550,11 @@ onUnmounted(() => {
   background: #fdf2f2;
 }
 
+.stat-card.cost {
+  border-color: #7f8c8d; /* A neutral grey */
+  background: #ecf0f1; /* Light grey background */
+}
+
 .stat-number {
   font-size: 1.5rem;
   font-weight: bold;
@@ -539,7 +575,7 @@ onUnmounted(() => {
 
 .table-header {
   display: grid;
-  grid-template-columns: 120px 200px 200px 150px 120px 120px;
+  grid-template-columns: 120px 200px 150px 150px 100px 100px 120px; /* Status, Type, Book, Created, Duration, Cost, Actions */
   gap: 1rem;
   padding: 1rem;
   background: #f8f9fa;
@@ -551,7 +587,7 @@ onUnmounted(() => {
 
 .job-row {
   display: grid;
-  grid-template-columns: 120px 200px 200px 150px 120px 120px;
+  grid-template-columns: 120px 200px 150px 150px 100px 100px 120px; /* Status, Type, Book, Created, Duration, Cost, Actions */
   gap: 1rem;
   padding: 1rem;
   border-bottom: 1px solid #f0f0f0;

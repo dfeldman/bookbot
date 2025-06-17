@@ -186,3 +186,16 @@ def list_all_jobs():
     return jsonify({
         'jobs': [job.to_dict() for job in jobs]
     })
+
+
+@job_api.route('/jobs/total_cost', methods=['GET'])
+@require_auth
+def get_total_job_cost():
+    """Calculate and return the total cost of all jobs."""
+    all_jobs = Job.query.all()
+    grand_total_cost = 0.0
+    for job in all_jobs:
+        # The job.total_cost property handles summing costs from its JobLog entries
+        grand_total_cost += job.total_cost
+    
+    return jsonify({'total_cost': round(grand_total_cost, 6)})

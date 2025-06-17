@@ -10,6 +10,7 @@ import BookViewer from './views/BookViewer.vue'
 import ChunkEditor from './views/ChunkEditor.vue'
 import JobsViewer from './views/JobsViewer.vue'
 import JobLogsViewer from './views/JobLogsViewer.vue'
+import JobDetailsViewer from './views/JobDetailsViewer.vue' // <-- Import new component
 
 import './style.css'
 
@@ -20,7 +21,8 @@ const routes = [
   { path: '/books/:bookId', name: 'BookViewer', component: BookViewer, props: true },
   { path: '/books/:bookId/chunks/:chunkId/edit', name: 'ChunkEditor', component: ChunkEditor, props: true },
   { path: '/jobs', name: 'JobsViewer', component: JobsViewer },
-  { path: '/jobs/:jobId/logs', name: 'JobLogsViewer', component: JobLogsViewer, props: true }
+  { path: '/jobs/:jobId/logs', name: 'JobLogsViewer', component: JobLogsViewer, props: true },
+  { path: '/jobs/:jobId', name: 'JobDetailsViewer', component: JobDetailsViewer, props: true } // <-- Add route for job details
 ]
 
 const router = createRouter({

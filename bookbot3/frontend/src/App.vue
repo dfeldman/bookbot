@@ -1,5 +1,6 @@
 <template>
   <div id="app">
+    <StatusBar />
     <router-view />
   </div>
 </template>
@@ -7,6 +8,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useAppStore } from './stores/app'
+import StatusBar from './components/StatusBar.vue' // Added import
 
 const appStore = useAppStore()
 

@@ -1,8 +1,5 @@
 <template>
   <div class="book-viewer">
-    <!-- Status Bar -->
-    <StatusBar />
-    
     <!-- Book Header -->
     <div class="book-header">
       <div class="book-title-section">
@@ -13,10 +10,6 @@
         <div class="book-meta">
           <span class="book-stats">{{ book?.chunk_count || 0 }} chunks</span>
           <span class="book-stats">{{ book?.word_count || 0 }} words</span>
-          <span v-if="book?.is_locked" class="book-status locked">
-            <div class="spinner"></div>
-            Job Running
-          </span>
         </div>
       </div>
     </div>
@@ -83,7 +76,6 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
-import StatusBar from '../components/StatusBar.vue'
 import BookIndex from '../components/BookIndex.vue'
 import BookReader from '../components/BookReader.vue'
 import BotManager from '../components/BotManager.vue'

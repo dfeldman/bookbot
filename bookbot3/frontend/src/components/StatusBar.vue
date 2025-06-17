@@ -11,22 +11,31 @@
       <!-- Center: Current Jobs -->
       <div class="jobs-section">
         <router-link to="/jobs" class="jobs-link">
-          <div v-if="activeJobs.length > 0" class="active-jobs">
+          <!-- Starting Indicator (takes precedence) -->
+          <div v-if="isJobStarting" class="job-starting-indicator">
+            <div class="spinner-small"></div>
+            <span>Job starting...</span>
+          </div>
+
+          <!-- Active Job Display -->
+          <div v-else-if="displayedJob" class="active-jobs">
             <div class="job-indicator">
               <div class="spinner-small"></div>
               <div class="job-details">
-                <div v-if="activeJobs.length === 1" class="single-job">
-                  <span class="job-name">{{ formatJobType(activeJobs[0].job_type) }}</span>
-                  <span class="job-time">{{ getElapsedTime(activeJobs[0]) }}</span>
+                <div class="single-job"> <!-- Always show single job details, count handled separately -->
+                  <span class="job-name">{{ formatJobType(displayedJob.job_type) }}</span>
+                  <span class="job-time">{{ getElapsedTime(displayedJob) }}</span>
                 </div>
-                <div v-else class="multiple-jobs">
-                  {{ activeJobs.length }} running jobs
+                <div v-if="globalRunningJobCount > 1" class="multiple-jobs-indicator">
+                  (+{{ globalRunningJobCount - 1 }} more)
                 </div>
               </div>
             </div>
           </div>
+
+          <!-- No Jobs -->
           <div v-else class="no-jobs">
-            📋 Jobs
+            No running jobs
           </div>
         </router-link>
       </div>
@@ -51,11 +60,12 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
-import { useBookStore } from '../stores/book'
+import { useJobStore } from '../stores/jobStore' // Replaced bookStore with jobStore
+import type { Job } from '../stores/types' // Import Job type
 
 const router = useRouter()
 const appStore = useAppStore()
-const bookStore = useBookStore()
+const jobStore = useJobStore() // Using jobStore now
 
 // Reactive timestamp for elapsed time calculation
 const now = ref(Date.now())
@@ -67,21 +77,17 @@ const accountBalance = computed(() => {
   return '25.50' // Placeholder
 })
 
-const activeJobs = computed(() => {
-  // Only show jobs for the current book, not all jobs globally
-  const currentBookId = bookStore.currentBook?.book_id
-  
-  if (!currentBookId) {
-    return []
+const displayedJob = computed<Job | null>(() => {
+  if (jobStore.globalRunningJobs.length > 0) {
+    // Display the first running job. Sort by started_at if necessary.
+    // For now, just take the first one from the list.
+    return jobStore.globalRunningJobs[0]
   }
-  
-  const filtered = bookStore.jobs.filter(job => 
-    job.book_id === currentBookId &&
-    (job.state === 'waiting' || job.state === 'running')
-  )
-  
-  return filtered
+  return null
 })
+
+const globalRunningJobCount = computed(() => jobStore.globalRunningJobs.length)
+const isJobStarting = computed(() => jobStore.showStartingIndicator)
 
 function formatJobType(jobType: string): string {
   // Convert job_type to readable format
@@ -91,7 +97,8 @@ function formatJobType(jobType: string): string {
     .join(' ')
 }
 
-function getElapsedTime(job: any): string {
+function getElapsedTime(job: Job | null): string { // Type job parameter
+  if (!job) return '0s'
   const startTime = job.started_at || job.created_at
   if (!startTime) return '0s'
   
@@ -117,12 +124,14 @@ function showSettings() {
 
 // Update elapsed time every second when there are active jobs
 onMounted(() => {
+  jobStore.startPolling() // Start polling for global jobs
   timeUpdateInterval = setInterval(() => {
     now.value = Date.now()
   }, 1000)
 })
 
 onUnmounted(() => {
+  jobStore.stopPolling() // Stop polling for global jobs
   if (timeUpdateInterval) {
     clearInterval(timeUpdateInterval)
   }
@@ -222,6 +231,12 @@ onUnmounted(() => {
   font-weight: 400;
 }
 
+.multiple-jobs-indicator {
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-left: 4px;
+}
+
 .multiple-jobs {
   font-weight: 500;
 }
@@ -251,6 +266,18 @@ onUnmounted(() => {
 
 .no-jobs:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.job-starting-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #93c5fd; /* Similar to active job text */
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  background: rgba(59, 130, 246, 0.1); /* Similar to active job background */
 }
 
 .account-section {

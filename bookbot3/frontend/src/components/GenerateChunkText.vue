@@ -113,6 +113,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { apiService } from '../services/api'
+import { useJobStore } from '../stores/jobStore'
 
 // Props
 interface Props {
@@ -122,6 +123,9 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+
+// Emits
+const jobStore = useJobStore()
 
 // Emits
 const emit = defineEmits<{
@@ -178,7 +182,7 @@ async function generateText() {
     }
     
     const response = await apiService.createJob(props.bookId, jobData)
-    
+    jobStore.triggerStartingIndicator() // Show immediate feedback
     emit('generationStarted', response.job_id)
     
     // Poll for completion

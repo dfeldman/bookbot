@@ -31,6 +31,9 @@ class LLMCall:
         model: str,
         api_key: str,
         target_word_count: int,
+        prompt: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+        llm_params: Optional[dict] = None,
         model_mode: Optional[str] = None,
         log_callback: Optional[Callable[[str], None]] = None
     ):
@@ -41,12 +44,18 @@ class LLMCall:
             model: The model name to use
             api_key: The API key for the LLM provider
             target_word_count: Target number of words to generate
+            prompt: The user prompt for the LLM.
+            system_prompt: The system prompt for the LLM.
+            llm_params: Other parameters for the LLM call (e.g., temperature).
             model_mode: Optional model mode override (e.g., "fake")
             log_callback: Optional callback for logging progress
         """
         self.model = model
         self.api_key = api_key
         self.target_word_count = target_word_count
+        self.prompt = prompt
+        self.system_prompt = system_prompt
+        self.llm_params = llm_params if llm_params is not None else {}
         self.model_mode = model_mode
         self.log_callback = log_callback
         
@@ -63,16 +72,29 @@ class LLMCall:
         self._use_fake = self._should_use_fake()
         
         if self._use_fake:
-            self._impl = FakeLLMCall(model, api_key, target_word_count, log_callback)
+            self._impl = FakeLLMCall(
+                model=self.model,
+                api_key=self.api_key,
+                target_word_count=self.target_word_count,
+                prompt=self.prompt,
+                system_prompt=self.system_prompt,
+                llm_params=self.llm_params,
+                log_callback=self.log_callback
+            )
         else:
             # TODO: Implement real LLM providers
             raise NotImplementedError("Real LLM providers not yet implemented")
     
     def set_prompt(self, prompt: str):
         """Set the prompt for the LLM call."""
-        self.prompt = prompt
-        if hasattr(self._impl, 'prompt'):
-            self._impl.prompt = prompt
+        self.prompt = prompt # Update self.prompt as well
+        # Ensure _impl is initialized and has a prompt attribute or setter
+        if hasattr(self, '_impl') and self._impl:
+            if hasattr(self._impl, 'set_prompt') and callable(self._impl.set_prompt):
+                self._impl.set_prompt(prompt)
+            elif hasattr(self._impl, 'prompt'):
+                self._impl.prompt = prompt
+            # If neither, the underlying implementation might not support dynamic prompt setting after init
     
     def _should_use_fake(self) -> bool:
         """Determine whether to use the fake LLM implementation."""

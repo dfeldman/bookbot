@@ -1,8 +1,6 @@
 <template>
   <div class="dashboard-container">
-    <!-- Status Bar -->
-    <StatusBar />
-    
+
     <div class="dashboard-content">
       <!-- Header -->
       <div class="dashboard-header">

@@ -118,6 +118,21 @@ class ApiService {
     await this.api.delete(`/jobs/${jobId}`)
   }
 
+  async getRunningJobs(): Promise<{ jobs: any[] }> {
+    const response = await this.api.get('/jobs/running');
+    return response.data;
+  }
+
+  async getAllJobs(params?: any): Promise<{ jobs: any[] }> {
+    const response = await this.api.get('/jobs', { params });
+    return response.data;
+  }
+
+  async getTotalCostAllJobs(): Promise<{ total_cost: number }> {
+    const response = await this.api.get('/jobs/total_cost');
+    return response.data;
+  }
+
   // Server-sent events for job streaming
   createJobEventSource(bookId: string): EventSource {
     return new EventSource(`/api/books/${bookId}/jobs/stream`)

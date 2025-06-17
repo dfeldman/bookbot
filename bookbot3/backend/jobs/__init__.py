@@ -8,6 +8,7 @@ that can generate content, process books, and export files.
 import threading
 import time
 import traceback
+import json # Added json import
 from datetime import datetime
 from typing import Dict, Any, Optional, Callable
 from abc import ABC, abstractmethod
@@ -19,7 +20,7 @@ from backend.llm import LLMCall, get_api_token_status
 # job processor implementation
 class JobProcessor:
     """Main job processor that runs in a background thread."""
-    
+
     def __init__(self, poll_interval: float = 1.0):
         """
         Initialize the job processor.
@@ -35,11 +36,11 @@ class JobProcessor:
         
         # Registry of job types
         self.job_types: Dict[str, type] = {}
-    
+
     def register(self, job_type, job_cls):
         """Register a job type with the processor."""
         self.job_types[job_type] = job_cls
-    
+
     def start(self, app=None):
         """Start the job processor in a background thread."""
         if self.running:
@@ -51,7 +52,7 @@ class JobProcessor:
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
         print("Job processor started")
-    
+
     def stop(self):
         """Stop the job processor."""
         if not self.running:
@@ -62,7 +63,7 @@ class JobProcessor:
         if self.thread:
             self.thread.join(timeout=5.0)
         print("Job processor stopped")
-    
+
     def _run(self):
         """Main job processing loop."""
         while self.running and not self._stop_event.is_set():
@@ -78,55 +79,125 @@ class JobProcessor:
             
             # Wait for next poll or stop signal
             self._stop_event.wait(self.poll_interval)
-    
+
     def _process_waiting_jobs(self):
         """Process all waiting jobs."""
         # Get waiting jobs
-        waiting_jobs = Job.query.filter_by(state='waiting').order_by(Job.created_at).all()
-        
-        for job in waiting_jobs:
-            if not self.running:
+        # Querying outside the loop means if a job fails and rolls back,
+        # subsequent operations in the same app_context might be affected if not handled perfectly.
+        # However, each _process_job is now designed to be more self-contained.
+        waiting_jobs_query = Job.query.filter(Job.state.in_(['waiting', 'running_retry'])) # Added running_retry for potential future use
+        waiting_jobs_query = waiting_jobs_query.order_by(Job.created_at)
+        # Fetch all jobs upfront. If the list is huge, consider processing in batches.
+        waiting_jobs = waiting_jobs_query.all()
+
+        for job_from_query in waiting_jobs:
+            if not self.running or self._stop_event.is_set(): # Check stop event
                 break
             
+            current_job_id = job_from_query.job_id # For logging if job_from_query becomes detached
+
+            # Each job processing is wrapped in its own try/except.
+            # _process_job is now designed to handle its own errors and commits/rollbacks robustly.
+            # So, an exception escaping _process_job here would be highly unexpected and critical.
             try:
-                self._process_job(job)
+                self._process_job(job_from_query)
             except Exception as e:
-                print(f"Error processing job {job.job_id}: {e}")
-                self._log_job_error(job, str(e))
-    
+                # This block is a "should never happen" safety net if _process_job itself has an unrecoverable error
+                # that prevents it from managing the session or its own state.
+                print(f"CRITICAL UNHANDLED ERROR: Exception escaped _process_job for job {current_job_id}: {e}. Trace: {traceback.format_exc()}")
+                try:
+                    db.session.rollback() # Ensure session is clean before trying to mark job as error.
+                    # Attempt to fetch the job by ID and mark as error, as a last resort.
+                    job_to_fail_critically = db.session.get(Job, current_job_id)
+                    if job_to_fail_critically and job_to_fail_critically.state not in ['complete', 'error', 'cancelled']:
+                        job_to_fail_critically.state = 'error'
+                        job_to_fail_critically.completed_at = datetime.utcnow()
+                        # Commit error state before logging
+                        db.session.commit()
+                        
+                        # Simplified logging to avoid relying on job_instance methods
+                        log_entry = JobLog(
+                            job_id=current_job_id,
+                            book_id=job_to_fail_critically.book_id if job_to_fail_critically.book_id else 'Unknown',
+                            log_level='CRITICAL',
+                            log_entry=f"Job failed in _process_waiting_jobs top-level safety net: {str(e)}. Trace: {traceback.format_exc()}"
+                        )
+                        db.session.add(log_entry)
+                        db.session.commit()
+                except Exception as final_error_handling_e:
+                    print(f"ULTRA CRITICAL: Failed to update job {current_job_id} to error state in _process_waiting_jobs safety net after unhandled error. Final error: {final_error_handling_e}. Trace: {traceback.format_exc()}")
+                    db.session.rollback() # Rollback this attempt too.
+
     def _process_job(self, job: Job):
         """Process a single job."""
-        # Update job state to running
-        job.state = 'running'
-        job.started_at = datetime.utcnow()
-        db.session.commit()
-        
-        # Create job instance
-        job_class = self.job_types.get(job.job_type)
-        if not job_class:
-            raise ValueError(f"Unknown job type: {job.job_type}")
-        
-        job_instance = job_class(job)
-        
+        original_job_id = job.job_id
+        job_instance = None # Define for broader scope in case of instantiation error logging
+
         try:
-            # Execute the job
-            success = job_instance.execute()
+            # Ensure job is part of the current session for updates
+            job = db.session.merge(job)
+
+            job.state = 'running'
+            job.started_at = datetime.utcnow()
+            db.session.commit() # Commit 'running' state
+
+            # Create job instance - this can fail
+            job_class = self.job_types.get(job.job_type)
+            if not job_class:
+                raise ValueError(f"Unknown job type: {job.job_type} for job ID {original_job_id}")
             
-            # Update job state
-            job.state = 'complete' if success else 'error'
-            job.completed_at = datetime.utcnow()
+            job_instance = job_class(job) # Instantiation can fail (e.g. ChunkJob init)
             
+            # job_instance.execute() is expected to manage its own transaction
+            # for final state (complete/error) if it doesn't raise an exception.
+            # GenerateTextJob.execute now does this.
+            job_instance.execute()
+            # If execute() completes without error, it should have set and committed
+            # the final job state. No explicit commit here by _process_job for that.
+
         except Exception as e:
-            job.state = 'error'
-            job.completed_at = datetime.utcnow()
-            self._log_job_error(job, f"Job execution failed: {str(e)}")
-            raise
+            # An exception here means:
+            # 1. 'running' state commit failed (unlikely to be caught here due to structure)
+            # 2. Job instantiation (job_class or job_instance=job_class(job)) failed.
+            # 3. job_instance.execute() failed critically and did not manage its own error state.
+            # The session might be dirty.
+            db.session.rollback()
+            try:
+                # Re-fetch the job to ensure it's attachable for state update
+                job_to_fail = db.session.get(Job, original_job_id)
+                if job_to_fail:
+                    job_to_fail.state = 'error'
+                    job_to_fail.completed_at = datetime.utcnow()
+                    # Commit the error state BEFORE logging, as _log_job_error also commits.
+                    db.session.commit() 
+                    error_details = f"Job execution/instantiation failed: {str(e)}. Trace: {traceback.format_exc()}"
+                    self._log_job_error(job_to_fail, error_details) # This will do its own commit.
+                else:
+                    # This case is severe, means we can't even mark the job as failed.
+                    print(f"CRITICAL: Job {original_job_id} not found after rollback to set error state. Original error: {e}")
+            except Exception as inner_e:
+                # If updating state to 'error' itself fails.
+                print(f"CRITICAL: Failed to set job {original_job_id} to error state after initial error '{e}'. Inner error: {inner_e}. Trace: {traceback.format_exc()}")
+                # Session is already rolled back from outer exception.
+                # Avoid further db operations here as state is unknown.
+            # Do not re-raise here; allow finally to run. The job state (if updated) is our record of failure.
+            # The _process_waiting_jobs loop should continue with the next job.
         
         finally:
-            # Unlock any locked resources
-            self._unlock_job_resources(job)
-            db.session.commit()
-    
+            # Unlock resources regardless of outcome.
+            try:
+                # Fetch by ID to ensure we have a valid session-bound object
+                job_for_unlock = db.session.get(Job, original_job_id)
+                if job_for_unlock:
+                    self._unlock_job_resources(job_for_unlock) # Does not commit
+                    db.session.commit() # Commit changes from unlocking
+                else:
+                     print(f"Warning: Job {original_job_id} not found for unlocking resources in finally block. State may be inconsistent.")
+            except Exception as unlock_e:
+                print(f"CRITICAL: Error during resource unlock for job {original_job_id}: {unlock_e}. Trace: {traceback.format_exc()}")
+                db.session.rollback() # Rollback unlock attempt if it fails
+
     def _log_job_error(self, job: Job, error_message: str):
         """Log an error for a job."""
         log_entry = JobLog(
@@ -136,7 +207,7 @@ class JobProcessor:
         )
         db.session.add(log_entry)
         db.session.commit()
-    
+
     def _unlock_job_resources(self, job: Job):
         """Unlock any resources locked by this job."""
         # Unlock book if it's a book job
@@ -280,20 +351,46 @@ class DemoJob(BaseJob):
             time.sleep(1)
         
         # Test LLM call
-        model_mode = self.book.props.get('model_mode') if self.book else None
-        llm_call = LLMCall(
-            model="demo-model",
-            api_key="demo-key",
-            target_word_count=50,
-            model_mode=model_mode,
-            log_callback=self.log
+        self.log("Attempting to use the LLM...")
+
+        # --- Parameters for LLM ---
+        model_name = "fake-gpt-4-turbo"
+        api_key_to_use = "test-key"  # or some other key for testing
+        prompt_text = "Write a short story about a brave robot who discovers a hidden garden."
+        system_prompt_text = "You are a master storyteller, known for your whimsical and heartwarming tales."
+        target_words = 150
+        other_llm_params = {"temperature": 0.75, "max_tokens": 250, "top_p": 0.9}
+
+        # --- Log LLM Call Details ---
+        api_key_log_message = "test-key" if api_key_to_use == "test-key" else "API key present (not 'test-key')"
+
+        log_details = (
+            f"LLM Call Details:\n"
+            f"  Model: {model_name}\n"
+            f"  API Key: {api_key_log_message}\n"
+            f"  System Prompt: {system_prompt_text}\n"
+            f"  Prompt: {prompt_text}\n"
+            f"  Target Word Count: {target_words}\n"
+            f"  Other Params: {json.dumps(other_llm_params)}"
         )
-        
+        self.log(log_details, level='LLM')  # Log before the call
+
+        # --- Instantiate and Execute LLMCall ---
+        llm_call = LLMCall(
+            model=model_name,
+            api_key=api_key_to_use,
+            target_word_count=target_words,
+            prompt=prompt_text,
+            system_prompt=system_prompt_text,
+            llm_params=other_llm_params,
+            log_callback=lambda msg: self.log(f"LLM Sub-log: {msg}", level='DEBUG')
+        )
+
         if llm_call.execute():
-            self.log(f"LLM call successful: {len(llm_call.output_text.split())} words generated")
-            self.log(f"Cost: ${llm_call.cost}")
+            self.log(f"LLM Output: {llm_call.output_text}", level='LLM')
+            self.log(f"LLM execution successful. Cost: ${llm_call.cost:.6f}, Output Tokens: {llm_call.output_tokens}")
         else:
-            self.log(f"LLM call failed: {llm_call.error_status}", 'ERROR')
+            self.log(f"LLM execution failed. Error: {llm_call.error_status}", level='ERROR')
             return False
         
         self.log("Demo job completed successfully")

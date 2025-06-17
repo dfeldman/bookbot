@@ -1,7 +1,5 @@
 <template>
   <div class="chunk-editor">
-    <!-- Status Bar -->
-    <StatusBar />
     
     <!-- Editor Header -->
     <div class="editor-header">
