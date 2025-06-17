@@ -1,0 +1,42 @@
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+.env/
+
+# Frontend JavaScript/Node.js
+node_modules/
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.next/
+frontend/.cache/
+
+# Environment files
+*.env
+.env.*
+
+venv/
+.venv/
+.env/
+
+# Application output
+output_files/
+
+# Hidden files and directories (except .gitignore)
+.*
+!.gitignore
+
+# MacOS
+.DS_Store
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
