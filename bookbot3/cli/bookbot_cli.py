@@ -626,12 +626,12 @@ class BookBotCLI:
         
     def generate_chunk_text(self, book_id: str, chunk_id: str, wait_for_completion: bool = True, 
                          timeout_seconds: int = 300):
-        """Generate text for a specific chunk using the generate_text job."""
+        """Generate text for a specific chunk using the 'GenerateChunk' job."""
         print(f"📝 Generating text for chunk {chunk_id} in book {book_id}...")
         
-        # Create generate_text job
+        # Create 'GenerateChunk' job
         try:
-            job_data = self.create_job(book_id, "generate_text", chunk_id=chunk_id)
+            job_data = self.create_job(book_id, "GenerateChunk", chunk_id=chunk_id)
             job_id = job_data['job_id']
             print(f"✅ Text generation job created with ID: {job_id}")
         except Exception as e:
@@ -1071,7 +1071,7 @@ def main():
     
     create_job_parser = job_subparsers.add_parser('create', help='Create a new job')
     create_job_parser.add_argument('book_id', help='Book ID')
-    create_job_parser.add_argument('job_type', help='Job type (e.g., demo, create_foundation, generate_text)')
+    create_job_parser.add_argument('job_type', help='Job type (e.g., demo, create_foundation, GenerateChunk)')
     create_job_parser.add_argument('--props', help='Job properties as JSON')
     
     cancel_job_parser = job_subparsers.add_parser('cancel', help='Cancel a job')

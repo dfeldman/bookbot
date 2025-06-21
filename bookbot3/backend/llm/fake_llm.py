@@ -309,7 +309,7 @@ class FakeLLMCall:
         """Generate generic structured text, incorporating mode, bot title, and original prompt if available."""
         content_parts = []
 
-        # Try to get mode from llm_params passed by GenerateTextJob
+        # Try to get mode from llm_params passed by GenerateChunkJob
         mode = self.llm_params.get('mode')
         if mode:
             content_parts.append(f"Mode: {mode}")

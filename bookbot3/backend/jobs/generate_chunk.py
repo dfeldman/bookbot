@@ -72,7 +72,7 @@ class LLMCallStub:
         return True
 
 
-class GenerateTextJob:
+class GenerateChunkJob:
     """Job for generating text content for chunks using AI."""
     
     # The allowed LLM group for this job type
@@ -88,11 +88,11 @@ class GenerateTextJob:
                     self.job_id = job_id
                     self.props = props
                     self.book_id = props.get('book_id')
-                    self.job_type = 'generate_text' # Should match actual job type
+                    self.job_type = 'GenerateChunk' # Should match actual job type
                     self.state = 'pending'
             self.job = SimpleJob(job_id, props)
         else:
-            raise TypeError(f"Invalid constructor args for GenerateTextJob: {args}")
+            raise TypeError(f"Invalid constructor args for GenerateChunkJob: {args}")
 
         self.props = getattr(self.job, 'props', {}) or {}
         self.chunk_id = self.props.get('chunk_id') # Convenience
@@ -296,7 +296,7 @@ class GenerateTextJob:
 
         except Exception as e:
             exception_str = str(e)
-            self.log(f"Critical error in GenerateTextJob.execute: {exception_str}", level='CRITICAL', props_data={'exception': exception_str})
+            self.log(f"Critical error in GenerateChunkJob.execute: {exception_str}", level='CRITICAL', props_data={'exception': exception_str})
             if 'chunk' in locals() and chunk and hasattr(chunk, 'is_locked'):
                 chunk.is_locked = False
             if hasattr(self.job, 'state'): # Check if job object is fully initialized

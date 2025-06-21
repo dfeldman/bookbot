@@ -3,7 +3,7 @@ import json
 from unittest.mock import patch, MagicMock
 
 from backend.models import db, User, Book, Chunk, Job, JobLog
-from backend.jobs.generate_text import GenerateTextJob
+from backend.jobs.generate_chunk import GenerateChunkJob
 from backend.jobs import get_job_processor, BaseJob
 
 # Helper class for testing processor state commits
@@ -27,7 +27,7 @@ class MockJob(BaseJob):
             return False
 
 class TestJobSystemIntegration:
-    """Test cases for job system integration with GenerateTextJob."""
+    """Test cases for job system integration with GenerateChunkJob."""
     
     def setup_test_data(self, app):
         """Set up test data in the database."""
@@ -93,11 +93,11 @@ class TestJobSystemIntegration:
     def test_generate_text_job_registered(self):
         """Test that generate_text job type is properly registered."""
         processor = get_job_processor()
-        assert 'generate_text' in processor.job_types
-        assert processor.job_types['generate_text'] == GenerateTextJob
+        assert 'GenerateChunk' in processor.job_types
+        assert processor.job_types['GenerateChunk'] == GenerateChunkJob
     
     def test_job_processor_creates_generate_text_job(self, app):
-        """Test that job processor can create GenerateTextJob instances."""
+        """Test that job processor can create GenerateChunkJob instances."""
         test_data = self.setup_test_data(app)
         
         with app.app_context():
@@ -114,7 +114,7 @@ class TestJobSystemIntegration:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book'].id,
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
@@ -124,11 +124,11 @@ class TestJobSystemIntegration:
             processor = get_job_processor()
             generate_job = processor.create_job_instance(job)
             
-            assert isinstance(generate_job, GenerateTextJob)
+            assert isinstance(generate_job, GenerateChunkJob)
             assert generate_job.job == job
     
     def test_job_processor_run_generate_text_job(self, app):
-        """Test running GenerateTextJob through the job processor."""
+        """Test running GenerateChunkJob through the job processor."""
         test_data = self.setup_test_data(app)
         
         with app.app_context():
@@ -149,7 +149,7 @@ class TestJobSystemIntegration:
             job = Job(
                 job_id='test-job-1',
                 book_id=book.book_id,
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
@@ -157,10 +157,10 @@ class TestJobSystemIntegration:
             db.session.commit()
             
             processor = get_job_processor()
-            job_class = processor.job_types['generate_text']
+            job_class = processor.job_types['GenerateChunk']
             job_instance = job_class(job)
             
-            with patch('backend.jobs.generate_text.LLMCall') as mock_llm:
+            with patch('backend.jobs.generate_chunk.LLMCall') as mock_llm:
                 mock_llm.return_value.execute.return_value = True
                 mock_llm.return_value.output_text = "REWRITE: This is the rewritten content"
                 mock_llm.return_value.cost = 0.001
@@ -210,7 +210,7 @@ class TestJobSystemIntegration:
                 job = Job(
                     job_id=f'test-job-{mode}',
                     book_id=book.book_id,
-                    job_type='generate_text',
+                    job_type='GenerateChunk',
                     state='pending',
                     props=job_props
                 )
@@ -218,10 +218,10 @@ class TestJobSystemIntegration:
                 db.session.commit()
                 
                 processor = get_job_processor()
-                job_class = processor.job_types['generate_text']
+                job_class = processor.job_types['GenerateChunk']
                 job_instance = job_class(job)
                 
-                with patch('backend.jobs.generate_text.LLMCall') as mock_llm:
+                with patch('backend.jobs.generate_chunk.LLMCall') as mock_llm:
                     mock_llm.return_value.execute.return_value = True
                     mock_llm.return_value.output_text = f"{mode.upper()}: Generated content for {mode}"
                     mock_llm.return_value.cost = 0.001

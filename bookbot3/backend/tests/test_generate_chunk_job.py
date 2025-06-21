@@ -1,5 +1,5 @@
 """
-Unit tests for GenerateTextJob functionality.
+Unit tests for GenerateChunkJob functionality.
 """
 
 import pytest
@@ -7,7 +7,7 @@ import json
 from unittest.mock import patch, MagicMock
 
 from backend.models import db, User, Book, Chunk, Job, JobLog
-from backend.jobs.generate_text import GenerateTextJob
+from backend.jobs.generate_chunk import GenerateChunkJob
 from app import create_app
 
 
@@ -30,8 +30,8 @@ def app():
         db.drop_all()
 
 
-class TestGenerateTextJob:
-    """Test cases for GenerateTextJob."""
+class TestGenerateChunkJob:
+    """Test cases for GenerateChunkJob."""
 
     def setup_test_data(self, app):
         """Set up test data in the database."""
@@ -62,7 +62,7 @@ class TestGenerateTextJob:
                 db.session.delete(existing_job)
                 db.session.commit()
 
-            job_record = Job(job_id='test-job-1', book_id=book.book_id, job_type='generate_text', state='pending', props=job_props)
+            job_record = Job(job_id='test-job-1', book_id=book.book_id, job_type='GenerateChunk', state='pending', props=job_props)
             db.session.add(job_record)
             db.session.commit()
 
@@ -79,7 +79,7 @@ class TestGenerateTextJob:
         test_data = self.setup_test_data(app)
         with app.app_context():
             job_record = db.session.get(Job, test_data['job_id'])
-            job = GenerateTextJob(job_record)
+            job = GenerateChunkJob(job_record)
             assert job.job == job_record
             assert job.chunk_id == test_data['scene_chunk_id']
             assert job.bot_id == test_data['bot_chunk_id']
@@ -94,7 +94,7 @@ class TestGenerateTextJob:
             
             assert chunk.is_locked is False
 
-            # Simulate locking as done in GenerateTextJob.execute
+            # Simulate locking as done in GenerateChunkJob.execute
             chunk.is_locked = True
             db.session.commit()
             db.session.refresh(chunk)
@@ -111,7 +111,7 @@ class TestGenerateTextJob:
         test_data = self.setup_test_data(app)
         with app.app_context():
             job_record = db.session.get(Job, test_data['job_id'])
-            job = GenerateTextJob(job_record)
+            job = GenerateChunkJob(job_record)
             chunk = Chunk.query.filter_by(chunk_id=test_data['scene_chunk_id']).first()
             bot_chunk = Chunk.query.filter_by(chunk_id=test_data['bot_chunk_id']).first()
 
@@ -126,7 +126,7 @@ class TestGenerateTextJob:
         """Test successful job execution."""
         test_data = self.setup_test_data(app)
         with app.app_context():
-            with patch('backend.jobs.generate_text.LLMCall') as mock_llm_call_cm:
+            with patch('backend.jobs.generate_chunk.LLMCall') as mock_llm_call_cm:
                 mock_llm_instance = mock_llm_call_cm.return_value
                 mock_llm_instance.execute.return_value = True
                 mock_llm_instance.output_text = "Generated text"
@@ -138,7 +138,7 @@ class TestGenerateTextJob:
                 mock_llm_instance.error_status = None # Explicitly None for success case
 
                 job_record = db.session.get(Job, test_data['job_id'])
-                job = GenerateTextJob(job_record)
+                job = GenerateChunkJob(job_record)
                 result = job.run()
 
                 assert result is True
@@ -157,7 +157,7 @@ class TestGenerateTextJob:
 
     def test_run_job_with_llm_error_uses_placeholder(self, app):
         """Test that placeholder text is used when the LLM call fails."""
-        with patch('backend.jobs.generate_text.LLMCall') as mock_llm_call:
+        with patch('backend.jobs.generate_chunk.LLMCall') as mock_llm_call:
             test_data = self.setup_test_data(app)
             with app.app_context():
                 mock_llm_instance = mock_llm_call.return_value
@@ -170,7 +170,7 @@ class TestGenerateTextJob:
                 mock_llm_instance.stop_reason = "error_stop"
 
                 job_record = db.session.get(Job, test_data['job_id'])
-                job = GenerateTextJob(job_record)
+                job = GenerateChunkJob(job_record)
                 result = job.run()
 
                 assert result is True # The job itself completes, but uses placeholder
@@ -189,7 +189,7 @@ class TestGenerateTextJob:
             job_record.props['mode'] = 'invalid_mode' # Set invalid mode
             db.session.commit() # Ensure props change is persisted
             
-            job = GenerateTextJob(job_record)
+            job = GenerateChunkJob(job_record)
             result = job.run()
             
             assert result is False
@@ -202,7 +202,7 @@ class TestGenerateTextJob:
 
     def test_job_logs_llm_cost_and_model(self, app):
         """Test that LLM call cost, model, and token info are logged correctly."""
-        with patch('backend.jobs.generate_text.LLMCall') as mock_llm_call:
+        with patch('backend.jobs.generate_chunk.LLMCall') as mock_llm_call:
             test_data = self.setup_test_data(app)
             with app.app_context():
                 mock_llm_instance = mock_llm_call.return_value
@@ -216,7 +216,7 @@ class TestGenerateTextJob:
                 mock_llm_instance.error_status = None # Ensure all logged attributes are explicitly set
 
                 job_record = db.session.get(Job, test_data['job_id'])
-                job = GenerateTextJob(job_record)
+                job = GenerateChunkJob(job_record)
                 job.run()
 
                 assert job.job.state == 'completed'
@@ -234,7 +234,7 @@ class TestGenerateTextJob:
 
     def test_job_updates_total_llm_cost_in_job_props(self, app):
         """Test that total_llm_cost is updated in Job.props."""
-        with patch('backend.jobs.generate_text.LLMCall') as mock_llm_call:
+        with patch('backend.jobs.generate_chunk.LLMCall') as mock_llm_call:
             test_data = self.setup_test_data(app)
             with app.app_context():
                 # Test case 1: Successful LLM call with cost
@@ -255,7 +255,7 @@ class TestGenerateTextJob:
                 job_record_success.props['total_llm_cost'] = 0.0 # Reset for test
                 db.session.commit()
                 
-                job_success = GenerateTextJob(job_record_success)
+                job_success = GenerateChunkJob(job_record_success)
                 job_success.run()
 
                 db.session.refresh(job_record_success)
@@ -282,7 +282,7 @@ class TestGenerateTextJob:
                 mock_llm_instance_fail.output_tokens = 0
                 mock_llm_instance_fail.stop_reason = "cost_stop_fail"
 
-                job_fail = GenerateTextJob(job_record_fail)
+                job_fail = GenerateChunkJob(job_record_fail)
                 job_fail.run()
 
                 db.session.refresh(job_record_fail)
@@ -292,13 +292,13 @@ class TestGenerateTextJob:
 
     def test_run_job_fails_on_exception(self, app):
         """Test that the job fails gracefully when an unexpected exception occurs."""
-        with patch('backend.jobs.generate_text.LLMCall') as mock_llm_call:
+        with patch('backend.jobs.generate_chunk.LLMCall') as mock_llm_call:
             test_data = self.setup_test_data(app)
             with app.app_context():
                 mock_llm_call.side_effect = Exception("Unexpected API error")
 
                 job_record = db.session.get(Job, test_data['job_id'])
-                job = GenerateTextJob(job_record)
+                job = GenerateChunkJob(job_record)
                 result = job.run()
 
                 assert result is False

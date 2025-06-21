@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from backend.models import db, Job, Chunk, JobLog, User
 from backend.jobs import get_job_processor
-from backend.jobs.generate_text import GenerateTextJob
+from backend.jobs.generate_chunk import GenerateChunkJob
 from backend.models import utcnow
 
 # TODO: Import or define necessary fixtures (app, db_session, init_test_db, etc.)
@@ -70,7 +70,7 @@ class TestJobFailureModes:
             job = Job(
                 job_id='failure-placeholder-job',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props={'chunk_id': test_data['scene_chunk_id'], 'bot_id': test_data['bot_chunk_id']}
             )
@@ -85,7 +85,7 @@ class TestJobFailureModes:
             assert retrieved_job.state == 'pending'
 
     def test_generate_text_job_fails_on_missing_chunk_id(self, app):
-        """Test GenerateTextJob validation fails if chunk_id is missing in props."""
+        """Test GenerateChunkJob validation fails if chunk_id is missing in props."""
         test_data = self.setup_test_data(app)
         with app.app_context():
             job_props_missing_chunk_id = {
@@ -96,14 +96,14 @@ class TestJobFailureModes:
             job = Job(
                 job_id='failure-missing-chunk-id',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props_missing_chunk_id
             )
             db.session.add(job)
             db.session.commit()
 
-            job_instance = GenerateTextJob(job)
+            job_instance = GenerateChunkJob(job)
 
             # Test validation directly
             assert not job_instance.validate(), "Validation should fail without chunk_id"

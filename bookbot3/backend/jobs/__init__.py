@@ -437,8 +437,8 @@ def get_job_processor():
     if _job_processor is None:
         _job_processor = JobProcessor()
         # Register job types
-        from backend.jobs.generate_text import GenerateTextJob
-        _job_processor.register('generate_text', GenerateTextJob)
+        from backend.jobs.generate_chunk import GenerateChunkJob
+        _job_processor.register('GenerateChunk', GenerateChunkJob)
         _job_processor.register('demo', DemoJob)
         _job_processor.register('create_foundation', CreateFoundationJob)
     return _job_processor

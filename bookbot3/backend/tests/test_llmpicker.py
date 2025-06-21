@@ -118,7 +118,7 @@ def test_select_llm_for_job(app):
     # Mock book and job
     book = MagicMock()
     job = MagicMock()
-    job.job_type = "generate_text"
+    job.job_type = "GenerateChunk"
     job.book_id = "test-book-123"
     job.props = {}
 
@@ -186,7 +186,7 @@ def test_select_llm_for_job(app):
 def test_allowed_llm_group_resolution():
     """Test resolving allowed LLM group from job class."""
     # We need to mock the job_type as a string, not pass a MagicMock
-    job_type = "generate_text"
+    job_type = "GenerateChunk"
     
     # Mock the job class to be returned
     mock_job_class = MagicMock()

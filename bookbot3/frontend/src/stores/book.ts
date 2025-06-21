@@ -242,9 +242,41 @@ export const useBookStore = defineStore('book', () => {
     }
   }
 
+  function updateChunkInStore(updatedChunk: Chunk) {
+    const index = chunks.value.findIndex(c => c.chunk_id === updatedChunk.chunk_id)
+    if (index !== -1) {
+      chunks.value[index] = updatedChunk
+    }
+  }
+
   function clearCurrentBook() {
     currentBook.value = null
     currentJob.value = null
+  }
+
+  async function startGenerateChunkJob(chunkId: string, placeholderValues: Record<string, string>): Promise<Job> {
+    try {
+      const chunk = await apiService.getChunk(chunkId);
+      const bookId = chunk.book_id;
+
+      const jobPayload = {
+        job_type: 'GenerateChunk',
+        props: {
+          task_chunk_id: chunkId,
+          placeholder_values: placeholderValues,
+        }
+      };
+      const job = await apiService.createJob(bookId, jobPayload);
+      
+      jobStore.triggerStartingIndicator();
+      jobs.value.push(job);
+      currentJob.value = job;
+
+      return job;
+    } catch (error) {
+      console.error('Failed to start GenerateChunk job:', error);
+      throw error;
+    }
   }
 
   return {
@@ -268,6 +300,8 @@ export const useBookStore = defineStore('book', () => {
     loadChunks,
     loadJobs,
     loadChunk,
-    clearCurrentBook
+    clearCurrentBook,
+    updateChunkInStore,
+    startGenerateChunkJob
   }
 })

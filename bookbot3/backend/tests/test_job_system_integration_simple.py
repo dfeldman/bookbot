@@ -1,5 +1,5 @@
 """
-Unit tests for job system integration and GenerateTextJob registration.
+Unit tests for job system integration and GenerateChunkJob registration.
 """
 
 import pytest
@@ -7,7 +7,7 @@ import json
 from unittest.mock import patch, MagicMock
 
 from backend.models import db, User, Book, Chunk, Job, JobLog
-from backend.jobs.generate_text import GenerateTextJob
+from backend.jobs.generate_chunk import GenerateChunkJob
 from backend.jobs import get_job_processor
 from app import create_app
 
@@ -33,7 +33,7 @@ def app():
 
 
 class TestJobSystemIntegration:
-    """Test cases for job system integration with GenerateTextJob."""
+    """Test cases for job system integration with GenerateChunkJob."""
     
     def setup_test_data(self, app):
         """Set up test data in the database."""
@@ -105,14 +105,14 @@ class TestJobSystemIntegration:
         """Test that generate_text job type is properly registered."""
         processor = get_job_processor()
         
-        # Check that 'generate_text' is in registered job types
-        assert 'generate_text' in processor.job_types
+        # Check that 'GenerateChunk' is in registered job types
+        assert 'GenerateChunk' in processor.job_types
         
         # Check that it maps to the correct class
-        assert processor.job_types['generate_text'] == GenerateTextJob
+        assert processor.job_types['GenerateChunk'] == GenerateChunkJob
     
     def test_job_processor_creates_generate_text_job(self, app):
-        """Test that job processor can create GenerateTextJob instances."""
+        """Test that job processor can create GenerateChunkJob instances."""
         test_data = self.setup_test_data(app)
         
         with app.app_context():
@@ -134,7 +134,7 @@ class TestJobSystemIntegration:
             job = Job(
                 job_id='test-job-1',
                 book_id=book.book_id,
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
@@ -144,14 +144,14 @@ class TestJobSystemIntegration:
             processor = get_job_processor()
             
             # Check that job type is registered
-            assert 'generate_text' in processor.job_types
-            job_class = processor.job_types['generate_text']
+            assert 'GenerateChunk' in processor.job_types
+            job_class = processor.job_types['GenerateChunk']
             
             # Create job instance directly
             generate_job = job_class(job)
             
             # Verify it's the correct type
-            assert isinstance(generate_job, GenerateTextJob)
+            assert isinstance(generate_job, GenerateChunkJob)
             assert generate_job.job == job
     
     def test_all_generation_modes_through_processor(self, app):
@@ -182,7 +182,7 @@ class TestJobSystemIntegration:
                 job = Job(
                     job_id=f'test-job-{mode}',
                     book_id=test_data['book_id'],
-                    job_type='generate_text',
+                    job_type='GenerateChunk',
                     state='pending',
                     props=job_props
                 )
@@ -190,7 +190,7 @@ class TestJobSystemIntegration:
                 db.session.commit()
                 
                 # Create and run job through processor
-                job_class = processor.job_types['generate_text']
+                job_class = processor.job_types['GenerateChunk']
                 generate_job = job_class(job)
                 generate_job.execute()
                 
@@ -231,8 +231,8 @@ class TestJobSystemIntegration:
                 job_class(job)
 
 
-class TestGenerateTextJobEdgeCases:
-    """Test edge cases and error conditions for GenerateTextJob."""
+class TestGenerateChunkJobEdgeCases:
+    """Test edge cases and error conditions for GenerateChunkJob."""
     
     def setup_test_data(self, app):
         """Set up test data in the database."""
@@ -304,14 +304,14 @@ class TestGenerateTextJobEdgeCases:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            generate_job = GenerateTextJob(job)
+            generate_job = GenerateChunkJob(job)
             
             # Should handle empty content gracefully
             generate_job.execute()
@@ -362,14 +362,14 @@ class TestGenerateTextJobEdgeCases:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            generate_job = GenerateTextJob(job)
+            generate_job = GenerateChunkJob(job)
             
             # Should handle special characters
             generate_job.execute()
@@ -435,14 +435,14 @@ class TestGenerateTextJobEdgeCases:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            generate_job = GenerateTextJob(job)
+            generate_job = GenerateChunkJob(job)
             
             # Should handle complex bot configuration
             generate_job.execute()
@@ -487,14 +487,14 @@ class TestGenerateTextJobEdgeCases:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            generate_job = GenerateTextJob(job)
+            generate_job = GenerateChunkJob(job)
             
             # Should handle malformed JSON gracefully
             generate_job.execute()

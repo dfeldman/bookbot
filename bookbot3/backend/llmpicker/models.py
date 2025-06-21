@@ -17,7 +17,6 @@ class LLMGroup(str, Enum):
     THINKER = "thinker"
     REVIEWER = "reviewer"
     OVERRIDE = "override"
-    EXPLICIT = "explicit"
     ALL = "all"  # Special case for LLMs that can be used for any task group
 
 

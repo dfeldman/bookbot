@@ -1,5 +1,5 @@
 """
-Unit tests for GenerateTextJob functionality.
+Unit tests for GenerateChunkJob functionality.
 """
 
 import pytest
@@ -7,7 +7,7 @@ import json
 from unittest.mock import patch, MagicMock
 
 from backend.models import db, User, Book, Chunk, Job, JobLog
-from backend.jobs.generate_text import GenerateTextJob
+from backend.jobs.generate_chunk import GenerateChunkJob
 from app import create_app
 
 
@@ -37,8 +37,8 @@ def client(app):
     return app.test_client()
 
 
-class TestGenerateTextJob:
-    """Test cases for GenerateTextJob."""
+class TestGenerateChunkJob:
+    """Test cases for GenerateChunkJob."""
     
     def setup_test_data(self, app):
         """Set up test data in the database."""
@@ -125,15 +125,15 @@ class TestGenerateTextJob:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            # Create GenerateTextJob instance
-            generate_job = GenerateTextJob(job)
+            # Create GenerateChunkJob instance
+            generate_job = GenerateChunkJob(job)
             
             assert generate_job.job == job
             assert generate_job.book.book_id == test_data['book_id']
@@ -159,14 +159,14 @@ class TestGenerateTextJob:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            generate_job = GenerateTextJob(job)
+            generate_job = GenerateChunkJob(job)
             
             # Should validate successfully
             assert generate_job.validate() == True
@@ -189,14 +189,14 @@ class TestGenerateTextJob:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            generate_job = GenerateTextJob(job)
+            generate_job = GenerateChunkJob(job)
             
             # Should fail validation
             assert generate_job.validate() == False
@@ -216,14 +216,14 @@ class TestGenerateTextJob:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            generate_job = GenerateTextJob(job)
+            generate_job = GenerateChunkJob(job)
             
             # Validation should pass since chunk_id is present (existence check happens in execute)
             assert generate_job.validate() == True
@@ -243,14 +243,14 @@ class TestGenerateTextJob:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            generate_job = GenerateTextJob(job)
+            generate_job = GenerateChunkJob(job)
             
             # Validation should pass since bot_id is present (existence check happens in execute)
             assert generate_job.validate() == True
@@ -270,14 +270,14 @@ class TestGenerateTextJob:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            generate_job = GenerateTextJob(job)
+            generate_job = GenerateChunkJob(job)
             
             # Validation should pass since bot_id is present (type check happens in execute)
             assert generate_job.validate() == True
@@ -297,14 +297,14 @@ class TestGenerateTextJob:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            generate_job = GenerateTextJob(job)
+            generate_job = GenerateChunkJob(job)
             
             # Initially chunk should not be locked
             chunk = Chunk.query.filter_by(chunk_id=test_data['scene_chunk_id']).first()
@@ -335,14 +335,14 @@ class TestGenerateTextJob:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            generate_job = GenerateTextJob(job)
+            generate_job = GenerateChunkJob(job)
             
             # Run the job
             generate_job.execute()
@@ -383,14 +383,14 @@ class TestGenerateTextJob:
                 job = Job(
                     job_id=f'test-job-{mode}',
                     book_id=test_data['book_id'],
-                    job_type='generate_text',
+                    job_type='GenerateChunk',
                     state='pending',
                     props=job_props
                 )
                 db.session.add(job)
                 db.session.commit()
                 
-                generate_job = GenerateTextJob(job)
+                generate_job = GenerateChunkJob(job)
                 generate_job.execute()
                 
                 # Verify content was updated with mode-specific content
@@ -417,14 +417,14 @@ class TestGenerateTextJob:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            generate_job = GenerateTextJob(job)
+            generate_job = GenerateChunkJob(job)
             
             # Initially not cancelled
             assert generate_job.is_cancelled() == False
@@ -451,14 +451,14 @@ class TestGenerateTextJob:
             job = Job(
                 job_id='test-job-1',
                 book_id=test_data['book_id'],
-                job_type='generate_text',
+                job_type='GenerateChunk',
                 state='pending',
                 props=job_props
             )
             db.session.add(job)
             db.session.commit()
             
-            generate_job = GenerateTextJob(job)
+            generate_job = GenerateChunkJob(job)
             
             # Log a test message
             generate_job.log('Test log message', 'INFO')
