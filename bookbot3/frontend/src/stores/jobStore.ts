@@ -1,13 +1,19 @@
 import { defineStore } from 'pinia'
-import { ref, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import { apiService } from '../services/api'
 import type { Job } from '@/stores/types.ts' // Assuming you have a Job type defined, adjust if necessary
 
-const POLLING_INTERVAL = 10000 // 10 seconds
+const POLLING_INTERVAL = 2000 // 2 seconds
 
 export const useJobStore = defineStore('jobStore', () => {
   const globalRunningJobs = ref<Job[]>([])
-  const isLoading = ref(false)
+  const allJobs = ref<Job[]>([]) // For JobsViewer
+  const currentJobDetails = ref<Job | null>(null) // For JobDetailsViewer
+  const currentJobLogs = ref<any[]>([]) // For JobLogsViewer
+  const isLoading = ref(false) // For global running jobs
+  const isJobsViewerLoading = ref(false) // For all jobs
+  const isJobDetailsLoading = ref(false) // For job details
+  const isJobLogsLoading = ref(false) // For job logs
   const error = ref<string | null>(null)
   const showStartingIndicator = ref(false)
   let pollIntervalId: number | null = null
@@ -53,21 +59,85 @@ export const useJobStore = defineStore('jobStore', () => {
       fetchGlobalRunningJobs()
     }
   }
-  
-  // Cleanup when the store instance is effectively unmounted
-  // This happens if the component using it is unmounted and no other component is using this store instance.
-  // Pinia's setup stores are singleton by default, so this onUnmounted might not behave as expected
-  // for global cleanup unless managed carefully (e.g. called from App.vue or a global setup).
-  // A more robust approach for a truly global store is to manage polling lifecycle explicitly from App.vue or StatusBar.vue.
-  onUnmounted(() => {
-    // stopPolling() // Consider if this is the right place or if StatusBar should manage it
-  })
 
+
+  async function fetchAllJobs(bookId?: string, state?: string) {
+    isJobsViewerLoading.value = true;
+    error.value = null;
+    try {
+      const params: { book_id?: string; state?: string } = {};
+      if (bookId) {
+        params.book_id = bookId;
+      }
+      if (state) {
+        params.state = state;
+      }
+
+      const response = await apiService.getAllJobs(params);
+      allJobs.value = response.jobs || [];
+    } catch (e: any) {
+      console.error('Failed to fetch all jobs:', e);
+      error.value = e.message || 'Failed to fetch jobs.';
+    } finally {
+      isJobsViewerLoading.value = false;
+    }
+  }
+
+  async function fetchJobDetails(jobId: string) {
+    isJobDetailsLoading.value = true;
+    error.value = null;
+    try {
+      const response = await apiService.getJob(jobId);
+      currentJobDetails.value = response;
+      return response;
+    } catch (e: any) {
+      console.error('Failed to fetch job details:', e);
+      error.value = e.message || 'Failed to fetch job details.';
+      return null;
+    } finally {
+      isJobDetailsLoading.value = false;
+    }
+  }
+
+  async function fetchJobLogs(jobId: string) {
+    isJobLogsLoading.value = true;
+    error.value = null;
+    try {
+      const response = await apiService.getJobLogs(jobId);
+      // Handle both array format and {logs: [...]} format
+      if (Array.isArray(response)) {
+        currentJobLogs.value = response;
+        return response;
+      } else if (response && Array.isArray(response.logs)) {
+        currentJobLogs.value = response.logs;
+        return response.logs;
+      } else {
+        currentJobLogs.value = [];
+        return [];
+      }
+    } catch (e: any) {
+      console.error('Failed to fetch job logs:', e);
+      error.value = e.message || 'Failed to fetch job logs.';
+      return [];
+    } finally {
+      isJobLogsLoading.value = false;
+    }
+  }
+  
   return {
     globalRunningJobs,
+    allJobs,
+    currentJobDetails,
+    currentJobLogs,
     isLoading,
+    isJobsViewerLoading,
+    isJobDetailsLoading,
+    isJobLogsLoading,
     error,
     fetchGlobalRunningJobs,
+    fetchAllJobs,
+    fetchJobDetails,
+    fetchJobLogs,
     startPolling,
     stopPolling,
     showStartingIndicator, // Expose the new state

@@ -19,6 +19,7 @@ from backend.llm import get_api_token_status
 from backend.api.books import book_api
 from backend.api.chunks import chunk_api
 from backend.api.jobs import job_api
+from backend.llmpicker import llmpicker_api
 
 
 def create_app(config_class=Config) -> Flask:
@@ -42,6 +43,9 @@ def create_app(config_class=Config) -> Flask:
     app.register_blueprint(book_api, url_prefix='/api')
     app.register_blueprint(chunk_api, url_prefix='/api')
     app.register_blueprint(job_api, url_prefix='/api')
+    # The llmpicker_api blueprint is registered with the /api prefix
+    # to ensure all API endpoints are consistently routed.
+    app.register_blueprint(llmpicker_api, url_prefix='/api')
     
     # Core endpoints
     @app.route('/auth')

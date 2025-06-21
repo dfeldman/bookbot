@@ -44,7 +44,7 @@
             v-for="book in bookStore.books" 
             :key="book.book_id"
             class="book-card card"
-            @click="openBook(book)"
+            @click="handleBookClick(book)"
           >
             <div class="book-header">
               <h3>{{ book.props.name || 'Untitled Book' }}</h3>
@@ -169,15 +169,28 @@ function createNewBook() {
   router.push('/wizard')
 }
 
-function openBook(book: Book) {
-  console.log('Opening book:', book)
-  const path = `/books/${book.book_id}`
-  console.log('Navigating to:', path)
-  router.push(path).then(() => {
-    console.log('Navigation successful')
-  }).catch((error) => {
-    console.error('Navigation failed:', error)
-  })
+function handleBookClick(book: Book) {
+  const job = bookStore.currentJob;
+  // Check if the book is locked or if the currentJob in bookStore pertains to this book and is active
+  if (book.is_locked || 
+      (job && job.book_id === book.book_id && 
+       (job.state === 'running' || job.state === 'waiting'))) { 
+    // TODO: Implement a user-friendly notification (e.g., toast)
+    console.warn(`Book '${book.props.name}' is currently being created or is locked. Please wait.`);
+    return;
+  }
+
+  console.log('Opening book:', book);
+  const path = `/books/${book.book_id}`;
+  console.log('Navigating to:', path);
+  
+  // Ensure currentBook is set before navigating to BookViewer
+  // This helps BookViewer load the correct book context immediately
+  bookStore.currentBook = book;
+  
+  router.push(path).catch((error) => {
+    console.error('Navigation failed:', error);
+  });
 }
 
 function formatNumber(num: number): string {

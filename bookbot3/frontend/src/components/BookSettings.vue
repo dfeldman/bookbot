@@ -145,6 +145,33 @@
         </div>
       </div>
 
+      <!-- LLM Preferences -->
+      <div class="settings-section">
+        <h4>LLM Preferences</h4>
+        <p class="section-description">
+          Set the default Large Language Model for different task types. 
+        </p>
+        <LLMPreferenceSelector 
+          v-if="llmDefaults"
+          :modelValue="llmDefaults"
+          @update:modelValue="handleDefaultsUpdate"
+        />
+      </div>
+
+      <!-- LLM Override -->
+      <div class="settings-section">
+        <h4>LLM Override</h4>
+        <p class="section-description">
+          Force all tasks to use a specific model, ignoring group defaults. 
+          Set to "No Override" to disable.
+        </p>
+        <LLMPreferenceSelector 
+          :modelValue="llmOverride"
+          @update:modelValue="handleOverrideUpdate"
+          :isOverride="true"
+        />
+      </div>
+
       <!-- Publication Settings -->
       <div class="settings-section">
         <h4>Publication Settings</h4>
@@ -293,7 +320,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { apiService } from '../services/api'
+import type { Book, Chunk } from '../stores/book'
+import LLMPreferenceSelector from './LLMPreferenceSelector.vue';
+import { apiService, LLMInfo } from '@/services/api';
 
 interface Props {
   book: any
@@ -304,29 +333,15 @@ const props = defineProps<Props>()
 const emit = defineEmits(['book-updated'])
 
 // Settings state
-const bookSettings = ref({
-  name: '',
-  description: '',
-  genre: '',
-  style: '',
-  target_audience: '',
-  default_chapter_length: '',
-  narrative_perspective: '',
-  tense: '',
-  content_rating: '',
-  author: '',
-  isbn: '',
-  publisher: '',
-  publication_date: '',
-  auto_save: true,
-  version_control: true,
-  collaboration: false,
-  public_sharing: false
-})
-
-const originalSettings = ref(null)
+const bookSettings = ref<any>({})
+const originalSettings = ref<any | null>(null)
 const hasChanges = ref(false)
 const isSaving = ref(false)
+
+// LLM settings
+const llmDefaults = ref<{ [key: string]: string }>({});
+const llmOverride = ref<string | null>(null);
+const llmCatalog = ref<LLMInfo[]>([]);
 
 // Computed properties
 const bookStats = computed(() => {
@@ -387,7 +402,8 @@ function loadSettings() {
     auto_save: props_data.auto_save !== false,
     version_control: props_data.version_control !== false,
     collaboration: props_data.collaboration === true,
-    public_sharing: props_data.public_sharing === true
+    public_sharing: props_data.public_sharing === true,
+    llm_defaults: props_data.llm_defaults || {}
   }
   
   originalSettings.value = JSON.parse(JSON.stringify(bookSettings.value))
@@ -414,6 +430,9 @@ async function saveSettings() {
       }
     }
     
+    // Note: LLM settings are saved separately now
+    delete updateData.props.llm_defaults;
+
     await apiService.updateBook(props.book.book_id, updateData)
     
     // Update original settings
@@ -431,10 +450,49 @@ async function saveSettings() {
   }
 }
 
+async function handleDefaultsUpdate(newDefaults: { [key: string]: string }) {
+  if (!props.book) return;
+  try {
+    await apiService.updateLlmDefaults(props.book.book_id, newDefaults);
+    llmDefaults.value = newDefaults;
+    // Optionally, show a success notification
+  } catch (error) {
+    console.error('Failed to update LLM defaults:', error);
+    // Optionally, show an error notification
+  }
+}
+
+async function handleOverrideUpdate(newOverride: string | null) {
+  if (!props.book) return;
+  try {
+    // The API expects an object with the key 'llm_id'
+    await apiService.updateLlmOverride(props.book.book_id, { llm_id: newOverride });
+    llmOverride.value = newOverride;
+    // Optionally, show a success notification
+  } catch (error) {
+    console.error('Failed to update LLM override:', error);
+    // Optionally, show an error notification
+  }
+}
+
 // Lifecycle
-onMounted(() => {
-  loadSettings()
-})
+onMounted(async () => {
+  loadSettings();
+  if (props.book) {
+    try {
+      const [defaults, override, catalog] = await Promise.all([
+        apiService.getLlmDefaults(props.book.book_id),
+        apiService.getLlmOverride(props.book.book_id),
+        apiService.getLlmCatalog()
+      ]);
+      llmDefaults.value = defaults;
+      llmOverride.value = override.llm_id;
+      llmCatalog.value = catalog.llms;
+    } catch (error) {
+      console.error('Failed to load LLM settings:', error);
+    }
+  }
+});
 </script>
 
 <style scoped>

@@ -132,70 +132,70 @@ class JobProcessor:
     def _process_job(self, job: Job):
         """Process a single job."""
         original_job_id = job.job_id
-        job_instance = None # Define for broader scope in case of instantiation error logging
+        job_instance = None
+        execution_result = None
+        exception_raised = None
 
         try:
-            # Ensure job is part of the current session for updates
+            # Ensure job is part of the current session and set to running
             job = db.session.merge(job)
-
             job.state = 'running'
             job.started_at = datetime.utcnow()
-            db.session.commit() # Commit 'running' state
+            db.session.commit()  # Commit 'running' state and started_at time
 
-            # Create job instance - this can fail
+            # Create and execute the job instance
             job_class = self.job_types.get(job.job_type)
             if not job_class:
-                raise ValueError(f"Unknown job type: {job.job_type} for job ID {original_job_id}")
+                raise ValueError(f"Unknown job type: {job.job_type}")
             
-            job_instance = job_class(job) # Instantiation can fail (e.g. ChunkJob init)
-            
-            # job_instance.execute() is expected to manage its own transaction
-            # for final state (complete/error) if it doesn't raise an exception.
-            # GenerateTextJob.execute now does this.
-            job_instance.execute()
-            # If execute() completes without error, it should have set and committed
-            # the final job state. No explicit commit here by _process_job for that.
+            job_instance = job_class(job)
+            execution_result = job_instance.execute()
 
         except Exception as e:
-            # An exception here means:
-            # 1. 'running' state commit failed (unlikely to be caught here due to structure)
-            # 2. Job instantiation (job_class or job_instance=job_class(job)) failed.
-            # 3. job_instance.execute() failed critically and did not manage its own error state.
-            # The session might be dirty.
-            db.session.rollback()
-            try:
-                # Re-fetch the job to ensure it's attachable for state update
-                job_to_fail = db.session.get(Job, original_job_id)
-                if job_to_fail:
-                    job_to_fail.state = 'error'
-                    job_to_fail.completed_at = datetime.utcnow()
-                    # Commit the error state BEFORE logging, as _log_job_error also commits.
-                    db.session.commit() 
-                    error_details = f"Job execution/instantiation failed: {str(e)}. Trace: {traceback.format_exc()}"
-                    self._log_job_error(job_to_fail, error_details) # This will do its own commit.
-                else:
-                    # This case is severe, means we can't even mark the job as failed.
-                    print(f"CRITICAL: Job {original_job_id} not found after rollback to set error state. Original error: {e}")
-            except Exception as inner_e:
-                # If updating state to 'error' itself fails.
-                print(f"CRITICAL: Failed to set job {original_job_id} to error state after initial error '{e}'. Inner error: {inner_e}. Trace: {traceback.format_exc()}")
-                # Session is already rolled back from outer exception.
-                # Avoid further db operations here as state is unknown.
-            # Do not re-raise here; allow finally to run. The job state (if updated) is our record of failure.
-            # The _process_waiting_jobs loop should continue with the next job.
-        
+            db.session.rollback() # Rollback any partial changes from the try block
+            exception_raised = e
+
         finally:
-            # Unlock resources regardless of outcome.
             try:
-                # Fetch by ID to ensure we have a valid session-bound object
-                job_for_unlock = db.session.get(Job, original_job_id)
-                if job_for_unlock:
-                    self._unlock_job_resources(job_for_unlock) # Does not commit
-                    db.session.commit() # Commit changes from unlocking
-                else:
-                     print(f"Warning: Job {original_job_id} not found for unlocking resources in finally block. State may be inconsistent.")
+                # Re-fetch the job to ensure we have a clean session object
+                job_to_finalize = db.session.get(Job, original_job_id)
+                if not job_to_finalize:
+                    print(f"CRITICAL: Job {original_job_id} not found in 'finally' block.")
+                    return
+
+                # Determine final state based on what happened
+                if exception_raised:
+                    job_to_finalize.state = 'error'
+                    job_to_finalize.error_message = f"{type(exception_raised).__name__}: {str(exception_raised)}"
+                elif execution_result is True:
+                    job_to_finalize.state = 'completed'
+                elif execution_result is False:
+                    job_to_finalize.state = 'failed'
+                    if not job_to_finalize.error_message:
+                        job_to_finalize.error_message = f"{job_to_finalize.job_type} returned False without an error message."
+                elif job_to_finalize.state == 'running':
+                    # If result is None and state is still running, it's an error
+                    job_to_finalize.state = 'error'
+                    job_to_finalize.error_message = "Job finished with an indeterminate state (execution returned None or did not set a final state)."
+
+                # Set completion time for any terminal state
+                if job_to_finalize.state in ['completed', 'failed', 'error']:
+                    job_to_finalize.completed_at = datetime.utcnow()
+
+                # Commit all final changes: state, error_message, completed_at, and any queued JobLogs
+                db.session.commit()
+
+                # Unlock resources after final state is secure
+                self._unlock_job_resources(job_to_finalize)
+                db.session.commit()
+
+            except Exception as final_e:
+                print(f"CRITICAL: Exception in 'finally' block for job {original_job_id}: {final_e}")
+                db.session.rollback()
+                db.session.commit() # Commit changes from unlocking
+                print(f"Job {final_job_instance.job_id} - Resources unlocked and committed.")
             except Exception as unlock_e:
-                print(f"CRITICAL: Error during resource unlock for job {original_job_id}: {unlock_e}. Trace: {traceback.format_exc()}")
+                print(f"Job {final_job_instance.job_id} - CRITICAL: Error during resource unlock: {unlock_e}. Trace: {traceback.format_exc()}")
                 db.session.rollback() # Rollback unlock attempt if it fails
 
     def _log_job_error(self, job: Job, error_message: str):
@@ -211,7 +211,7 @@ class JobProcessor:
     def _unlock_job_resources(self, job: Job):
         """Unlock any resources locked by this job."""
         # Unlock book if it's a book job
-        if job.job_type in ['book_job', 'export_job']:  # Add more book job types as needed
+        if job.job_type in ['book_job', 'export_job', 'create_foundation']:  # Add more book job types as needed
             book = db.session.get(Book, job.book_id)
             if book and book.job == job.job_id:
                 book.is_locked = False
@@ -251,15 +251,29 @@ class BaseJob(ABC):
             message: The message to log
             level: The log level (INFO, WARNING, ERROR)
         """
-        print(f"[{self.job.job_type}:{self.job.job_id[:8]}] {message}")
+        # Enhanced console logging with timestamp, level, and book_id for better debugging
+        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        book_id = getattr(self.job, 'book_id', 'unknown')
+        
+        # Format based on log level for visual distinction
+        if level == 'ERROR':
+            print(f"\033[91m[{timestamp}][{level}][{self.job.job_type}:{self.job.job_id[:8]}][book:{book_id[:8] if book_id else 'None'}] {message}\033[0m")
+        elif level == 'WARNING':
+            print(f"\033[93m[{timestamp}][{level}][{self.job.job_type}:{self.job.job_id[:8]}][book:{book_id[:8] if book_id else 'None'}] {message}\033[0m")
+        else:  # INFO, DEBUG, etc.
+            print(f"[{timestamp}][{level}][{self.job.job_type}:{self.job.job_id[:8]}][book:{book_id[:8] if book_id else 'None'}] {message}")
+        
+        # Create props with book_id for improved log filtering/searching
+        log_props = {"book_id": book_id} if book_id else {}
         
         log_entry = JobLog(
             job_id=self.job.job_id,
             log_entry=message,
-            log_level=level
+            log_level=level,
+            props=log_props
         )
         db.session.add(log_entry)
-        db.session.commit()
+        # The session will be committed by the calling method at an appropriate time.
     
     def is_cancelled(self) -> bool:
         """
@@ -336,6 +350,7 @@ class ExportJob(BaseJob):
 
 class DemoJob(BaseJob):
     """Demo job for testing the job system."""
+    allowed_lm_group = "thinker"
     
     def execute(self) -> bool:
         """Execute the demo job."""
@@ -399,6 +414,7 @@ class DemoJob(BaseJob):
 
 class CreateFoundationJob(BookJob):
     """Job that creates the foundation for a book (outline, characters, settings, etc.)."""
+    allowed_lm_group = "thinker"
     
     def execute(self) -> bool:
         """Execute the create foundation job."""

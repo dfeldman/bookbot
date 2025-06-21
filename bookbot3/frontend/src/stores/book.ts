@@ -21,6 +21,17 @@ export interface Book {
   word_count?: number
 }
 
+export interface LLMInfo {
+  id: string;
+  name: string;
+  company: string;
+  cost_per_million_tokens_input: number;
+  cost_per_million_tokens_output: number;
+  context_length: number;
+  quality_score: number;
+  groups: string[];
+}
+
 export interface Chunk {
   chunk_id: string
   book_id: string
@@ -55,6 +66,7 @@ export interface Job {
   completed_at?: string
   created_at: string
   updated_at?: string
+  total_cost?: number
 }
 
 export const useBookStore = defineStore('book', () => {
@@ -132,7 +144,17 @@ export const useBookStore = defineStore('book', () => {
       // Add the job to the jobs array
       jobs.value.push(job);
       currentJob.value = job;
-      return job;
+
+    // Lock the book in the store
+    const bookInStore = books.value.find(b => b.book_id === bookId);
+    if (bookInStore) {
+      bookInStore.is_locked = true;
+    }
+    if (currentBook.value && currentBook.value.book_id === bookId) {
+      currentBook.value.is_locked = true;
+    }
+
+    return job;
     } catch (error) {
       console.error('Failed to start CreateFoundation job:', error)
       throw error
@@ -150,7 +172,27 @@ export const useBookStore = defineStore('book', () => {
       }
       
       currentJob.value = job
-      return job
+
+    // If job is finished, unlock the book
+    // Assuming job object from apiService.getJob uses states like 'completed', 'failed', 'cancelled'
+    if (job.state === 'completed' || job.state === 'failed' || job.state === 'cancelled') {
+      const bookToUnlock = books.value.find(b => b.book_id === job.book_id);
+      if (bookToUnlock) {
+        bookToUnlock.is_locked = false;
+      }
+      if (currentBook.value && currentBook.value.book_id === job.book_id) {
+        currentBook.value.is_locked = false;
+        if (job.state === 'completed') {
+          // Refresh book details and chunks for the currently viewed book
+          // This ensures that if the user is looking at the book when the job finishes,
+          // the new chunks (e.g., foundation) are loaded.
+          console.log(`Job ${job.job_id} completed for current book ${job.book_id}. Reloading book and chunks.`);
+          loadBook(job.book_id); // Reload book metadata
+          loadChunks(job.book_id); // Reload chunks
+        }
+      }
+    }
+    return job
     } catch (error) {
       console.error('Failed to poll job status:', error)
       throw error

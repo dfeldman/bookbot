@@ -1,4 +1,4 @@
-import type { Job } from '../stores/book';
+import type { Job } from '../stores/types';
 
 export function getStatusIcon(state: string): string {
   switch (state) {
@@ -35,7 +35,7 @@ export function formatDuration(job: Job): string {
   if (!job.started_at) return 'Not started';
   
   const start = new Date(job.started_at).getTime();
-  const end = job.completed_at ? new Date(job.completed_at).getTime() : Date.now();
+  const end = job.ended_at ? new Date(job.ended_at).getTime() : Date.now();
   
   let duration = Math.max(0, end - start); // Ensure duration is not negative
 

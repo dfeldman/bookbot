@@ -9,7 +9,7 @@
       <div class="filter-controls">
         <div class="filter-group">
           <label for="book-filter">Book:</label>
-          <select v-model="selectedBookId" id="book-filter" @change="loadJobs">
+          <select id="book-filter" v-model="selectedBookId">
             <option value="">All Books</option>
             <option v-for="book in books" :key="book.book_id" :value="book.book_id">
               {{ book.props.name || 'Untitled Book' }}
@@ -19,7 +19,7 @@
         
         <div class="filter-group">
           <label for="state-filter">Status:</label>
-          <select v-model="selectedState" id="state-filter" @change="loadJobs">
+          <select id="state-filter" v-model="selectedState">
             <option value="">All States</option>
             <option value="waiting">Waiting</option>
             <option value="running">Running</option>
@@ -29,38 +29,40 @@
           </select>
         </div>
         
-        <button @click="loadJobs" class="refresh-btn" :disabled="loading">
-          <span class="icon">🔄</span>
-          Refresh
+        <button @click="loadJobs" :disabled="loading" class="refresh-btn">
+          <span v-if="loading">⏳</span>
+          <span v-else>🔄</span> Refresh
         </button>
       </div>
     </div>
 
-    <div v-if="loading" class="loading-state">
+    <!-- Loading State -->
+    <div v-if="loading && jobs.length === 0" class="loading-state">
       <div class="spinner"></div>
-      Loading jobs...
+      <p>Loading jobs...</p>
     </div>
-
+    
+    <!-- Empty State -->
     <div v-else-if="jobs.length === 0" class="empty-state">
       <div class="empty-icon">📋</div>
       <h3>No Jobs Found</h3>
-      <p v-if="selectedState || selectedBookId">No jobs match your current filters.</p>
-      <p v-else>There are no jobs in the system.</p>
+      <p>No jobs match your current filters or there are no jobs in the system yet.</p>
     </div>
-
-    <div v-else class="jobs-container">
+    
+    <template v-else>
+      <!-- Stats Cards -->
       <div class="jobs-stats">
         <div class="stat-card">
           <div class="stat-number">{{ jobStats.total }}</div>
           <div class="stat-label">Total Jobs</div>
         </div>
-        <div class="stat-card running">
-          <div class="stat-number">{{ jobStats.running }}</div>
-          <div class="stat-label">Running</div>
-        </div>
         <div class="stat-card waiting">
           <div class="stat-number">{{ jobStats.waiting }}</div>
           <div class="stat-label">Waiting</div>
+        </div>
+        <div class="stat-card running">
+          <div class="stat-number">{{ jobStats.running }}</div>
+          <div class="stat-label">Running</div>
         </div>
         <div class="stat-card complete">
           <div class="stat-number">{{ jobStats.complete }}</div>
@@ -68,119 +70,120 @@
         </div>
         <div class="stat-card error">
           <div class="stat-number">{{ jobStats.error }}</div>
-          <div class="stat-label">Failed</div>
+          <div class="stat-label">Error</div>
         </div>
         <div class="stat-card cost">
           <div class="stat-number">{{ formatCurrency(grandTotalCost) }}</div>
-          <div class="stat-label">Total LLM Cost</div>
+          <div class="stat-label">Total Cost</div>
         </div>
       </div>
-
+      
+      <!-- Jobs Table -->
       <div class="jobs-table">
         <div class="table-header">
-          <div class="col-status">Status</div>
-          <div class="col-type">Type</div>
-          <div class="col-book">Book</div>
-          <div class="col-created">Created</div>
-          <div class="col-duration">Duration</div>
-          <div class="col-cost">Cost</div>
-          <div class="col-actions">Actions</div>
+          <div>Status</div>
+          <div>Type</div>
+          <div>Book</div>
+          <div>Created</div>
+          <div>Duration</div>
+          <div>Cost</div>
+          <div>Actions</div>
         </div>
         
-        <div 
-          v-for="job in sortedJobs" 
-          :key="job.job_id"
-          :class="['job-row', `status-${job.state}`]"
-          @click="viewJobDetails(job.job_id)"
-        >
-          <div class="col-status">
+        <div v-for="job in sortedJobs" :key="job.job_id" class="job-row">
+          <!-- Status -->
+          <div>
             <span :class="['status-badge', job.state]">
-              <span class="status-icon">{{ getStatusIcon(job.state) }}</span>
-              {{ formatJobState(job.state) }}
+              {{ getStatusIcon(job.state) }} {{ formatJobState(job.state) }}
             </span>
           </div>
           
-          <div class="col-type">
+          <!-- Type -->
+          <div>
             <div class="job-type">{{ formatJobType(job.job_type) }}</div>
-            <div v-if="job.props && Object.keys(job.props).length > 0" class="job-props">
-              {{ formatJobProps(job.props) }}
-            </div>
+            <div class="job-props" v-if="job.props">{{ formatJobProps(job.props) }}</div>
           </div>
           
-          <div class="col-book">
-            <div class="book-info">
-              <div class="book-name">{{ getBookName(job.book_id) }}</div>
-              <div class="book-id">{{ job.book_id.substring(0, 8) }}...</div>
-            </div>
+          <!-- Book -->
+          <div class="book-info">
+            <div class="book-name">{{ getBookName(job.book_id) }}</div>
+            <div class="book-id">{{ job.book_id }}</div>
           </div>
           
-          <div class="col-created">
+          <!-- Created -->
+          <div>
             <div class="created-time">{{ formatDateTime(job.created_at) }}</div>
             <div class="created-relative">{{ getRelativeTime(job.created_at) }}</div>
           </div>
           
-          <div class="col-duration">
+          <!-- Duration -->
+          <div>
             <div class="duration">{{ formatDuration(job) }}</div>
             <div v-if="job.state === 'running'" class="running-indicator">
-              <span class="pulse-dot"></span>
-              Running...
+              <span class="pulse-dot"></span> In progress
             </div>
           </div>
           
-          <div class="col-cost">
+          <!-- Cost -->
+          <div>
             {{ formatCurrency(job.total_cost) }}
           </div>
           
-          <div class="col-actions" @click.stop>
-            <button 
-              @click="viewJobLogs(job.job_id)"
-              class="action-btn logs-btn"
-              title="View Logs"
-            >
-              📄
+          <!-- Actions -->
+          <div class="col-actions">
+            <button @click="viewJobDetails(job.job_id)" class="action-btn details-btn" title="View Details">
+              🔍
+            </button>
+            <button @click="viewJobLogs(job.job_id)" class="action-btn logs-btn" title="View Logs">
+              📝
             </button>
             <button 
               v-if="job.state === 'waiting' || job.state === 'running'"
               @click="cancelJob(job.job_id)"
               class="action-btn cancel-btn"
-              title="Cancel Job"
-            >
+              title="Cancel Job">
               ❌
-            </button>
-            <button 
-              @click="viewJobDetails(job.job_id)"
-              class="action-btn details-btn"
-              title="View Details"
-            >
-              👁️
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+// Imports
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useBookStore, type Job } from '../stores/book'
+import { useBookStore } from '../stores/book'
+import { useJobStore } from '../stores/jobStore'
+import type { Job } from '../stores/types'
 import { apiService } from '../services/api'
+import { 
+  getStatusIcon, 
+  formatJobState, 
+  formatJobType, 
+  formatDateTime, 
+  formatDuration 
+} from '../utils/jobFormatters'
 
+// Setup stores and router
 const router = useRouter()
 const bookStore = useBookStore()
+const jobStore = useJobStore()
 
-// State
-const jobs = ref<Job[]>([])
-const loading = ref(false)
-const grandTotalCost = ref<number | null>(null)
+// Local state
 const selectedBookId = ref('')
 const selectedState = ref('')
+const grandTotalCost = ref<number | null>(null)
 const autoRefreshInterval = ref<number | null>(null)
 
-// Computed
+// Basic computed properties
+const jobs = computed(() => jobStore.allJobs)
+const loading = computed(() => jobStore.isJobsViewerLoading)
 const books = computed(() => bookStore.books)
 
+// Job statistics - fixes job state counting mismatch
 const jobStats = computed(() => {
   const stats = {
     total: jobs.value.length,
@@ -190,74 +193,43 @@ const jobStats = computed(() => {
     error: 0,
     cancelled: 0
   }
-  
+
   jobs.value.forEach(job => {
-    if (job.state in stats) {
-      stats[job.state as keyof typeof stats]++
+    let state = job.state
+    if (state === 'completed') state = 'complete'
+    if (state === 'failed') state = 'error'
+    if (state === 'pending') state = 'waiting'
+
+    if (stats.hasOwnProperty(state)) {
+      stats[state as keyof typeof stats]++
     }
   })
-  
+
   return stats
 })
 
+// Sort jobs with newest first
 const sortedJobs = computed(() => {
   return [...jobs.value].sort((a, b) => {
-    // Sort by state priority (running > waiting > error > complete > cancelled)
-    // const statePriority = { running: 5, waiting: 4, error: 3, complete: 2, cancelled: 1 }
-    // const aPriority = statePriority[a.state as keyof typeof statePriority] || 0
-    // const bPriority = statePriority[b.state as keyof typeof statePriority] || 0
-    
-    // if (aPriority !== bPriority) {
-    //   return bPriority - aPriority
-    // }
-    
-    // Then by created_at (newest first)
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    const dateA = new Date(a.created_at).getTime()
+    const dateB = new Date(b.created_at).getTime()
+    return dateB - dateA
   })
 })
 
 // Methods
 async function loadJobs() {
-  loading.value = true
-  try {
-    const params: any = {}
-    if (selectedState.value) {
-      params.state = selectedState.value
-    }
-
-    let response;
-    if (!selectedBookId.value) {
-      // Fetch all jobs if no specific book is selected
-      response = await apiService.getAllJobs(params)
-    } else {
-      // Fetch jobs for the selected book
-      response = await apiService.getJobs(selectedBookId.value, params)
-    }
-
-    jobs.value = response.jobs.map((job: any) => ({
-      ...job,
-      created_at: new Date(job.created_at),
-      updated_at: new Date(job.updated_at)
-    }))
-  } catch (error) {
-    console.error('Failed to load jobs:', error)
-    jobs.value = []
-  } finally {
-    loading.value = false
-  }
+  await jobStore.fetchAllJobs(selectedBookId.value, selectedState.value)
+  await loadGrandTotalCost()
 }
 
-async function cancelJob(jobId: string) {
-  if (!confirm('Are you sure you want to cancel this job?')) {
-    return
-  }
-  
+async function loadGrandTotalCost() {
   try {
-    await apiService.delete(`/api/jobs/${jobId}`)
-    await loadJobs() // Refresh the list
+    const data = await apiService.getTotalCostAllJobs()
+    grandTotalCost.value = data.total_cost
   } catch (error) {
-    console.error('Failed to cancel job:', error)
-    alert('Failed to cancel job. Please try again.')
+    console.error('Failed to load grand total cost:', error)
+    grandTotalCost.value = null
   }
 }
 
@@ -269,57 +241,40 @@ function viewJobLogs(jobId: string) {
   router.push(`/jobs/${jobId}/logs`)
 }
 
-function getStatusIcon(state: string): string {
-  const icons = {
-    waiting: '⏳',
-    running: '⚡',
-    complete: '✅',
-    error: '❌',
-    cancelled: '🚫'
+async function cancelJob(jobId: string) {
+  try {
+    await apiService.cancelJob(jobId)
+    // Refresh jobs list after cancellation
+    loadJobs()
+  } catch (error) {
+    console.error('Failed to cancel job:', error)
   }
-  return icons[state as keyof typeof icons] || '❓'
 }
 
-function formatJobState(state: string): string {
-  return state.charAt(0).toUpperCase() + state.slice(1)
-}
-
-function formatJobType(jobType: string): string {
-  return jobType
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-}
-
-function formatJobProps(props: any): string {
-  if (!props || typeof props !== 'object') return ''
-  
-  const entries = Object.entries(props)
-  if (entries.length === 0) return ''
-  
-  // Show first few key properties
-  const displayEntries = entries.slice(0, 2)
-  let result = displayEntries.map(([key, value]) => `${key}: ${value}`).join(', ')
-  
-  if (entries.length > 2) {
-    result += ` +${entries.length - 2} more`
-  }
-  
-  return result
-}
-
-function getBookName(bookId: string): string {
+function getBookName(bookId: string) {
   const book = books.value.find(b => b.book_id === bookId)
-  return book?.props?.name || 'Unknown Book'
+  return book ? book.props.name || 'Untitled Book' : 'Unknown Book'
 }
 
-function formatDateTime(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleString()
+function formatJobProps(props: Record<string, any> | undefined) {
+  if (!props) return ''
+  
+  // Filter out large or complex props that would make the display messy
+  const filteredProps = Object.entries(props)
+    .filter(([key, value]) => 
+      typeof value !== 'object' && 
+      key !== 'api_key' && 
+      key !== 'token' && 
+      !key.includes('password')
+    )
+  
+  return filteredProps
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(', ')
 }
 
-function getRelativeTime(dateString: string): string {
-  const date = new Date(dateString)
+function getRelativeTime(dateStr: string) {
+  const date = new Date(dateStr)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   
@@ -333,43 +288,11 @@ function getRelativeTime(dateString: string): string {
   return `${diffDays}d ago`
 }
 
-function formatDuration(job: Job): string {
-  if (!job.started_at) {
-    return job.state === 'waiting' ? 'Not started' : '-'
-  }
-  
-  const startTime = new Date(job.started_at).getTime()
-  const endTime = job.completed_at ? new Date(job.completed_at).getTime() : Date.now()
-  const durationMs = endTime - startTime
-  
-  const seconds = Math.floor(durationMs / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  
-  if (hours > 0) {
-    return `${hours}h ${minutes % 60}m`
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`
-  } else {
-    return `${seconds}s`
-  }
-}
-
 function formatCurrency(value: number | null | undefined): string {
   if (value === null || typeof value === 'undefined' || Number.isNaN(value)) {
-    return 'N/A';
+    return 'N/A'
   }
-  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`;
-}
-
-async function loadGrandTotalCost() {
-  try {
-    const data = await apiService.getTotalCostAllJobs();
-    grandTotalCost.value = data.total_cost;
-  } catch (error) {
-    console.error('Failed to load grand total cost:', error);
-    grandTotalCost.value = null;
-  }
+  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`
 }
 
 function startAutoRefresh() {
@@ -389,14 +312,19 @@ function stopAutoRefresh() {
   }
 }
 
-// Lifecycle
+// Watch for filter changes
+watch([selectedBookId, selectedState], () => {
+  loadJobs()
+})
+
+// Lifecycle hooks
 onMounted(async () => {
   await bookStore.loadBooks()
-  // If no book is selected and there are books available, select the first one.
+  // If no book is selected and there are books available, select the first one
   if (!selectedBookId.value && books.value.length > 0) {
     selectedBookId.value = books.value[0].book_id
   }
-  await loadJobs() // loadJobs now calls loadGrandTotalCost internally
+  await loadJobs()
   startAutoRefresh()
 })
 
@@ -407,7 +335,7 @@ onUnmounted(() => {
 
 <style scoped>
 .jobs-viewer {
-  padding: 2rem;
+  padding: 1.5rem;
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -415,19 +343,18 @@ onUnmounted(() => {
 .jobs-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 2rem;
-  gap: 2rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .title-section h1 {
-  margin: 0 0 0.5rem 0;
-  color: #2c3e50;
-  font-size: 2rem;
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
 }
 
 .subtitle {
-  margin: 0;
   color: #666;
   font-size: 1rem;
 }
@@ -435,68 +362,63 @@ onUnmounted(() => {
 .filter-controls {
   display: flex;
   gap: 1rem;
-  align-items: flex-end;
+  align-items: center;
   flex-wrap: wrap;
 }
 
 .filter-group {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.filter-group label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #555;
-}
-
-.filter-group select {
+select {
   padding: 0.5rem;
-  border: 1px solid #ddd;
   border-radius: 4px;
-  background: white;
+  border: 1px solid #ddd;
   min-width: 150px;
 }
 
 .refresh-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: #3498db;
-  color: white;
-  border: none;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.875rem;
+  transition: background-color 0.2s;
 }
 
 .refresh-btn:hover {
-  background: #2980b9;
+  background-color: #e0e0e0;
 }
 
-.refresh-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.loading-state {
+.loading-state,
+.empty-state {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  padding: 4rem;
-  color: #666;
+  padding: 3rem 0;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: #ccc;
 }
 
 .spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #f3f3f3;
-  border-top: 2px solid #3498db;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
   border-radius: 50%;
   animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
 }
 
 @keyframes spin {
@@ -504,200 +426,172 @@ onUnmounted(() => {
   100% { transform: rotate(360deg); }
 }
 
-.empty-state {
-  text-align: center;
-  padding: 4rem;
-  color: #666;
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-}
-
+/* Stats Cards */
 .jobs-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 }
 
 .stat-card {
-  background: white;
-  border: 1px solid #e1e8ed;
+  background-color: #f9f9f9;
   border-radius: 8px;
   padding: 1rem;
   text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.stat-card.running {
-  border-color: #f39c12;
-  background: #fef9e7;
-}
-
-.stat-card.waiting {
-  border-color: #3498db;
-  background: #e8f4fd;
-}
-
-.stat-card.complete {
-  border-color: #27ae60;
-  background: #e8f5e8;
-}
-
-.stat-card.error {
-  border-color: #e74c3c;
-  background: #fdf2f2;
-}
-
-.stat-card.cost {
-  border-color: #7f8c8d; /* A neutral grey */
-  background: #ecf0f1; /* Light grey background */
-}
+.stat-card.waiting { background-color: #fff8e1; }
+.stat-card.running { background-color: #e3f2fd; }
+.stat-card.complete { background-color: #e8f5e9; }
+.stat-card.error { background-color: #ffebee; }
+.stat-card.cost { background-color: #f3e5f5; }
 
 .stat-number {
-  font-size: 1.5rem;
+  font-size: 1.8rem;
   font-weight: bold;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
 }
 
 .stat-label {
-  font-size: 0.875rem;
   color: #666;
+  font-size: 0.9rem;
 }
 
+/* Jobs Table */
 .jobs-table {
-  background: white;
-  border: 1px solid #e1e8ed;
+  width: 100%;
   border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: white;
 }
 
 .table-header {
   display: grid;
-  grid-template-columns: 120px 200px 150px 150px 100px 100px 120px; /* Status, Type, Book, Created, Duration, Cost, Actions */
-  gap: 1rem;
-  padding: 1rem;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e1e8ed;
-  font-weight: 600;
-  font-size: 0.875rem;
-  color: #555;
+  grid-template-columns: 1fr 1.5fr 1fr 1fr 1fr 0.7fr 0.8fr;
+  background-color: #f5f5f5;
+  padding: 0.75rem 1rem;
+  font-weight: bold;
+  border-bottom: 1px solid #eee;
 }
 
 .job-row {
   display: grid;
-  grid-template-columns: 120px 200px 150px 150px 100px 100px 120px; /* Status, Type, Book, Created, Duration, Cost, Actions */
-  gap: 1rem;
+  grid-template-columns: 1fr 1.5fr 1fr 1fr 1fr 0.7fr 0.8fr;
   padding: 1rem;
-  border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  border-bottom: 1px solid #eee;
+  align-items: center;
 }
 
 .job-row:hover {
-  background: #f8f9fa;
-}
-
-.job-row:last-child {
-  border-bottom: none;
+  background-color: #f9f9f9;
 }
 
 .status-badge {
   display: inline-flex;
   align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
   gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
 }
 
 .status-badge.waiting {
-  background: #e8f4fd;
-  color: #3498db;
+  background-color: #fff8e1;
+  color: #ffa000;
 }
 
 .status-badge.running {
-  background: #fef9e7;
-  color: #f39c12;
+  background-color: #e3f2fd;
+  color: #1976d2;
 }
 
 .status-badge.complete {
-  background: #e8f5e8;
-  color: #27ae60;
+  background-color: #e8f5e9;
+  color: #388e3c;
 }
 
 .status-badge.error {
-  background: #fdf2f2;
-  color: #e74c3c;
+  background-color: #ffebee;
+  color: #d32f2f;
 }
 
 .status-badge.cancelled {
-  background: #f5f5f5;
-  color: #666;
+  background-color: #f5f5f5;
+  color: #757575;
 }
 
 .job-type {
-  font-weight: 500;
+  font-weight: bold;
   margin-bottom: 0.25rem;
 }
 
 .job-props {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: #666;
-}
-
-.book-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
 }
 
 .book-name {
   font-weight: 500;
+  margin-bottom: 0.25rem;
 }
 
 .book-id {
   font-size: 0.75rem;
-  color: #666;
+  color: #999;
   font-family: monospace;
 }
 
 .created-time {
-  font-size: 0.875rem;
   margin-bottom: 0.25rem;
 }
 
 .created-relative {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: #666;
 }
 
 .duration {
   font-weight: 500;
-  margin-bottom: 0.25rem;
 }
 
 .running-indicator {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-  color: #f39c12;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #1976d2;
+  margin-top: 0.25rem;
 }
 
 .pulse-dot {
-  width: 6px;
-  height: 6px;
-  background: #f39c12;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: #1976d2;
   border-radius: 50%;
   animation: pulse 1.5s infinite;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
 }
 
 .col-actions {
@@ -706,69 +600,71 @@ onUnmounted(() => {
 }
 
 .action-btn {
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
-  transition: transform 0.2s;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: none;
+  background-color: #f5f5f5;
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .action-btn:hover {
-  transform: scale(1.1);
+  background-color: #e0e0e0;
 }
 
-.logs-btn {
-  background: #3498db;
-  color: white;
+.details-btn:hover {
+  background-color: #e3f2fd;
 }
 
-.cancel-btn {
-  background: #e74c3c;
-  color: white;
+.logs-btn:hover {
+  background-color: #e8f5e9;
 }
 
-.details-btn {
-  background: #95a5a6;
-  color: white;
+.cancel-btn:hover {
+  background-color: #ffebee;
+}
+
+@media (max-width: 1024px) {
+  .job-row,
+  .table-header {
+    grid-template-columns: 1fr 1.5fr 1fr 1fr 1fr 0.7fr 0.8fr;
+    font-size: 0.9rem;
+  }
 }
 
 @media (max-width: 768px) {
-  .jobs-viewer {
-    padding: 1rem;
+  .jobs-table {
+    display: block;
+    overflow-x: auto;
+  }
+  
+  .job-row,
+  .table-header {
+    width: 900px;
   }
   
   .jobs-header {
     flex-direction: column;
-    gap: 1rem;
+    align-items: flex-start;
   }
   
   .filter-controls {
     width: 100%;
-  }
-  
-  .table-header,
-  .job-row {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-  
-  .table-header {
-    display: none;
-  }
-  
-  .job-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
-  .jobs-stats {
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    justify-content: space-between;
   }
 }
+</style>
+
+<style scoped>
+.jobs-viewer {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Add more styling as needed */
 </style>

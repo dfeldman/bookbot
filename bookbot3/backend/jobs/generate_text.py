@@ -74,6 +74,9 @@ class LLMCallStub:
 
 class GenerateTextJob:
     """Job for generating text content for chunks using AI."""
+    
+    # The allowed LLM group for this job type
+    allowed_llm_group = "writer"
 
     def __init__(self, *args):
         if len(args) == 1 and isinstance(args[0], Job): # Check if it's a Job instance

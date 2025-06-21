@@ -24,6 +24,13 @@
           >
             {{ isSaving ? 'Saving...' : 'Save Changes' }}
           </button>
+          <button 
+            @click="showVersionHistory = true" 
+            class="history-button" 
+            :disabled="!chunk"
+          >
+            Version History
+          </button>
           <button @click="showDeleteConfirm = true" class="delete-button">
             Delete Chunk
           </button>
@@ -47,7 +54,7 @@
     <!-- Editor Content -->
     <div v-else-if="chunk" class="editor-content">
       <!-- Chunk Metadata -->
-      <div class="chunk-metadata">
+      <div v-if="chunkData" class="chunk-metadata">
         <div class="metadata-grid">
           <div class="metadata-item">
             <label>Type:</label>
@@ -58,6 +65,7 @@
               <option value="character">Character</option>
               <option value="setting">Setting</option>
               <option value="notes">Notes</option>
+                            <option value="bot_task">Bot Task</option>
               <option value="other">Other</option>
             </select>
           </div>
@@ -97,7 +105,8 @@
             <div class="property-item">
               <label>Name:</label>
               <input 
-                v-model="chunkData.props!.name" 
+                v-if="chunkData?.props"
+                v-model="chunkData.props.name" 
                 @input="markAsChanged"
                 placeholder="Chunk name"
               />
@@ -106,7 +115,8 @@
             <div class="property-item">
               <label>Scene ID:</label>
               <input 
-                v-model="chunkData.props!.scene_id" 
+                v-if="chunkData?.props"
+                v-model="chunkData.props.scene_id" 
                 @input="markAsChanged"
                 placeholder="Scene identifier"
               />
@@ -115,7 +125,8 @@
             <div class="property-item">
               <label>Scene Title:</label>
               <input 
-                v-model="chunkData.props!.scene_title" 
+                v-if="chunkData?.props"
+                v-model="chunkData.props.scene_title" 
                 @input="markAsChanged"
                 placeholder="Scene title"
               />
@@ -156,85 +167,29 @@
         />
       </div>
 
-      <!-- Bot Configuration Panel for Bot Chunks -->
-      <div v-if="isBot" class="bot-config-container">
-        <div class="bot-config-panel">
-          <h4>Bot Configuration</h4>
-          <div class="bot-config-form">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="bot-name">Bot Name</label>
-                <input
-                  id="bot-name"
-                  v-model="chunkData.props!.name"
-                  type="text"
-                  placeholder="Enter bot name"
-                  @input="markAsChanged"
-                />
-              </div>
-              <div class="form-group">
-                <label for="llm-alias">LLM Alias</label>
-                <select
-                  id="llm-alias"
-                  v-model="chunkData.props!.llm_alias"
-                  @change="markAsChanged"
-                >
-                  <option value="Writer">Writer</option>
-                  <option value="Thinker">Thinker</option>
-                  <option value="Explicit">Explicit</option>
-                  <option value="Large-context">Large-context</option>
-                </select>
-              </div>
-            </div>
-            
-            <div class="form-row">
-              <div class="form-group">
-                <label for="temperature">Temperature</label>
-                <input
-                  id="temperature"
-                  v-model.number="chunkData.props!.temperature"
-                  type="number"
-                  min="0"
-                  max="2"
-                  step="0.1"
-                  @input="markAsChanged"
-                />
-              </div>
-              <div class="form-group">
-                <label for="bot-description">Description</label>
-                <input
-                  id="bot-description"
-                  v-model="chunkData.props!.description"
-                  type="text"
-                  placeholder="Brief description of this bot"
-                  @input="markAsChanged"
-                />
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="system-prompt">System Prompt</label>
-              <textarea
-                id="system-prompt"
-                v-model="chunkData.props!.system_prompt"
-                rows="4"
-                placeholder="System prompt that defines the bot's personality and behavior"
-                @input="markAsChanged"
-              ></textarea>
-            </div>
-          </div>
-        </div>
+      <!-- Bot Editor for Bot Chunks -->
+      <div v-if="isBot" class="bot-editor-container">
+        <BotEditor v-if="isBot && chunkData" :modelValue="chunkData" @update:modelValue="handleChunkDataUpdate" />
       </div>
 
-      <!-- Text Editor -->
-      <div class="text-editor-container">
+      <!-- Bot Task Editor -->
+      <div v-if="isBotTask" class="bot-task-editor-container">
+        <BotTaskEditor v-if="chunkData" :modelValue="chunkData" @update:modelValue="handleChunkDataUpdate" />
+      </div>
+
+      <!-- Text Editor (for non-bot and non-bot-task chunks) -->
+      <div v-if="!isBot && !isBotTask && chunkData" class="text-editor-container">
         <h4>Content</h4>
-        <TextEditor
-          v-model="chunkData.text!"
+        <MarkdownEditor
+          v-if="chunkData"
+          v-model="chunkData.text"
           :show-toolbar="true"
           :show-word-count="false"
+          :readonly="!!chunkData.is_locked"
           :placeholder="getPlaceholder()"
           @update:model-value="markAsChanged"
+          :fontFamily="getBookFontFamily()"
+          :fontSize="getBookFontSize()"
         />
       </div>
     </div>
@@ -246,44 +201,38 @@
         <p>Are you sure you want to delete this chunk? This action cannot be undone.</p>
         <div class="modal-actions">
           <button @click="showDeleteConfirm = false" class="cancel-button">Cancel</button>
-          <button @click="deleteChunk" class="delete-button">Delete</button>
+          <button @click="confirmDelete" class="delete-button">Delete</button>
         </div>
       </div>
+    </div>
+    
+    <!-- Version History Modal -->
+    <div v-if="showVersionHistory" class="modal-overlay" @click="showVersionHistory = false">
+      <ChunkVersionHistory 
+        v-if="chunk" 
+        :chunkId="route.params.chunkId.toString()" 
+        :fontFamily="getBookFontFamily()" 
+        :fontSize="getBookFontSize()" 
+        @close="showVersionHistory = false"
+        @restored="handleVersionRestored"
+        @click.stop
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, onBeforeUnmount } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useBookStore } from '../stores/book'
+import { useBookStore, type Chunk } from '../stores/book'
 import { apiService } from '../services/api'
-import StatusBar from '../components/StatusBar.vue'
-import TextEditor from '../components/TextEditor.vue'
-import SceneContextPanel from '../components/SceneContextPanel.vue'
-import GenerateChunkText from '../components/GenerateChunkText.vue'
 
-// Types
-interface Chunk {
-  chunk_id: string
-  type: string
-  chapter: number | null
-  order: number
-  text: string
-  word_count: number
-  version: number
-  is_locked: boolean
-  props: {
-    name?: string
-    scene_id?: string
-    scene_title?: string
-    chapter_title?: string
-    tags?: string[]
-    [key: string]: any
-  }
-  created_at: string
-  updated_at: string
-}
+import MarkdownEditor from '../components/MarkdownEditor.vue'
+import SceneContextPanel from '../components/SceneContextPanel.vue'
+import BotEditor from '../components/BotEditor.vue'
+import BotTaskEditor from '../components/BotTaskEditor.vue'
+import GenerateChunkText from '../components/GenerateChunkText.vue'
+import ChunkVersionHistory from '../components/ChunkVersionHistory.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -291,29 +240,14 @@ const bookStore = useBookStore()
 
 // Reactive state
 const chunk = ref<Chunk | null>(null)
-const chunkData = ref<Partial<Chunk>>({
-  type: 'scene',
-  chapter: null,
-  order: 1,
-  text: '',
-  props: {
-    name: '',
-    scene_id: '',
-    scene_title: '',
-    tags: [] as string[],
-    // Bot-specific properties
-    llm_alias: 'Writer',
-    temperature: 0.7,
-    description: '',
-    system_prompt: ''
-  }
-})
-const originalChunkData = ref<any>(null)
+const chunkData = ref<Chunk | null>(null)
+const originalChunkData = ref<Chunk | null>(null)
 const hasChanges = ref(false)
 const isLoading = ref(false)
 const isSaving = ref(false)
 const error = ref('')
 const showDeleteConfirm = ref(false)
+const showVersionHistory = ref(false)
 const tagsInput = ref('')
 
 // Context panel state
@@ -326,6 +260,7 @@ const contextData = ref({
 })
 const contextLoading = ref(false)
 const contextError = ref<string | null>(null)
+const autoSaveTimer = ref<NodeJS.Timeout | null>(null);
 
 // Computed
 const book = computed(() => bookStore.currentBook)
@@ -333,257 +268,208 @@ const bookId = computed(() => route.params.bookId as string)
 const chunkId = computed(() => route.params.chunkId as string)
 
 const currentWordCount = computed(() => {
-  if (!chunkData.value.text) return 0
-  return chunkData.value.text.trim().split(/\s+/).filter((word: string) => word.length > 0).length
-})
+  if (!chunkData.value || !chunkData.value.text) return 0;
+  const text = chunkData.value.text.replace(/\s+/g, ' ').trim();
+  return text ? text.split(/\s+/).length : 0;
+});
+
+// Font settings helpers
+function getBookFontFamily() {
+  // Get font family from book settings if available, otherwise use default
+  return book.value?.props?.font_family || 'Georgia, serif'
+}
+
+function getBookFontSize() {
+  // Get font size from book settings if available, otherwise use default
+  return book.value?.props?.font_size || '18px'
+}
 
 // Context panel computed properties
-const isScene = computed(() => chunkData.value.type === 'scene')
-const isBot = computed(() => chunkData.value.type === 'bot')
-const hasSceneId = computed(() => Boolean(chunkData.value.props?.scene_id))
+
+const isScene = computed(() => chunkData.value?.type === 'scene')
+const isBot = computed(() => chunkData.value?.type === 'bot')
+const isBotTask = computed(() => chunkData.value?.type === 'bot_task')
+const hasSceneId = computed(() => Boolean(chunkData.value?.props?.scene_id))
 
 // Functions
 function markAsChanged() {
-  hasChanges.value = true
+  hasChanges.value = true;
+  if (autoSaveTimer.value) {
+    clearTimeout(autoSaveTimer.value);
+  }
+  autoSaveTimer.value = setTimeout(() => {
+    saveChunk();
+  }, 3000); // Auto-save after 3 seconds
 }
 
 function updateTags() {
-  const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
-  if (chunkData.value.props) {
-    chunkData.value.props.tags = tags
-    markAsChanged()
+  const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+  if (chunkData.value && chunkData.value.props) {
+    chunkData.value.props.tags = tags;
+    markAsChanged();
   }
 }
 
-function getChunkDisplayName() {
-  if (chunk.value?.props?.name) {
-    return chunk.value.props.name
-  }
-  if (chunk.value?.props?.scene_title) {
-    return chunk.value.props.scene_title
-  }
-  if (chunk.value?.type) {
-    const type = chunk.value.type.charAt(0).toUpperCase() + chunk.value.type.slice(1)
-    if (chunk.value.chapter) {
-      return `${type} - Chapter ${chunk.value.chapter}`
+const getChunkDisplayName = () => {
+  const data = chunkData.value;
+  if (!data) return '...';
+  if (data.props?.name) return data.props.name;
+  if (data.props?.scene_title) return data.props.scene_title;
+  if (data.type) {
+    const typeName = data.type.charAt(0).toUpperCase() + data.type.slice(1);
+    if (data.chapter) {
+      return `${typeName} - Chapter ${data.chapter}`;
     }
-    return type
+    return typeName;
   }
-  return 'Untitled Chunk'
+  return 'Untitled Chunk';
 }
 
 function getPlaceholder() {
-  switch (chunkData.value.type) {
+  const data = chunkData.value;
+  if (!data) return 'Write something...';
+  switch (data.type) {
     case 'scene':
-      return 'Write your scene content here...'
-    case 'chapter':
-      return 'Write your chapter content here...'
-    case 'outline':
-      return 'Write your outline here...'
-    case 'character':
-      return 'Describe your character here...'
-    case 'setting':
-      return 'Describe your setting here...'
-    case 'notes':
-      return 'Write your notes here...'
+      return 'Write your scene content here...';
+    case 'bot_task':
+      return 'Enter your bot task template here. Use {{variable}} for placeholders.';
     default:
-      return 'Write your content here...'
+      return 'Write something...';
   }
 }
 
 async function loadChunk() {
-  if (!chunkId.value) return
-  
-  isLoading.value = true
-  error.value = ''
-  
+  if (!chunkId.value) return;
+
+  isLoading.value = true;
+  error.value = '';
+
   try {
-    const response = await apiService.getChunk(chunkId.value)
-    chunk.value = response
-    
-    // Initialize editable data
-    chunkData.value = {
-      type: response.type || 'scene',
-      chapter: response.chapter,
-      order: response.order || 1,
-      text: response.text || '',
-      props: {
-        name: response.props?.name || '',
-        scene_id: response.props?.scene_id || '',
-        scene_title: response.props?.scene_title || '',
-        tags: response.props?.tags || [],
-        // Bot-specific properties
-        llm_alias: response.props?.llm_alias || 'Writer',
-        temperature: response.props?.temperature || 0.7,
-        description: response.props?.description || '',
-        system_prompt: response.props?.system_prompt || '',
-        // Ensure other properties are preserved
-        ...response.props
-      }
-    }
+    const response = await apiService.getChunk(chunkId.value);
+    chunk.value = response;
+
+    // Create a deep copy to avoid modifying the original store data
+    const editableChunk = JSON.parse(JSON.stringify(response));
+
+    // Explicitly create a full Chunk object to satisfy the interface
+    const fullChunk: Chunk = {
+      ...editableChunk,
+      book_id: bookId.value,
+      is_deleted: editableChunk.is_deleted ?? false,
+      is_latest: editableChunk.is_latest ?? true,
+      text: editableChunk.text ?? '',
+      props: editableChunk.props || {},
+    };
+
+    chunkData.value = fullChunk;
     
     // Store original data for comparison
-    originalChunkData.value = JSON.parse(JSON.stringify(chunkData.value)) as any
+    originalChunkData.value = JSON.parse(JSON.stringify(chunkData.value)) as Chunk;
     
     // Update tags input
     if (chunkData.value.props && chunkData.value.props.tags) {
-      tagsInput.value = chunkData.value.props.tags.join(', ')
+      tagsInput.value = chunkData.value.props.tags.join(', ');
     }
     
-    hasChanges.value = false
+    hasChanges.value = false;
   } catch (err) {
-    console.error('Failed to load chunk:', err)
-    error.value = 'Failed to load chunk. Please try again.'
+    console.error('Failed to load chunk:', err);
+    error.value = 'Failed to load chunk. Please try again.';
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
 }
 
 async function saveChunk() {
-  if (!hasChanges.value || isSaving.value) return
-  
-  isSaving.value = true
-  
+  if (!hasChanges.value || !chunkData.value) return;
+  isSaving.value = true;
   try {
-    const updateData = {
+    const payload: Partial<Chunk> = {
       type: chunkData.value.type,
       chapter: chunkData.value.chapter,
       order: chunkData.value.order,
       text: chunkData.value.text,
-      props: {
-        ...chunkData.value.props,
-        word_count: currentWordCount.value
-      }
-    }
-    
-    await apiService.updateChunk(chunkId.value, updateData)
-    
-    // Update local chunk data
-    chunk.value = { ...chunk.value, ...updateData } as any
-    originalChunkData.value = JSON.parse(JSON.stringify(chunkData.value)) as any
-    hasChanges.value = false
-    
-    // Show success feedback (you could add a toast notification here)
-    console.log('Chunk saved successfully')
-    
+      props: chunkData.value.props,
+    };
+    const updatedChunk = await apiService.updateChunk(chunkId.value, payload);
+    chunk.value = updatedChunk;
+    chunkData.value = JSON.parse(JSON.stringify(updatedChunk));
+    originalChunkData.value = JSON.parse(JSON.stringify(updatedChunk));
+    hasChanges.value = false;
   } catch (err) {
-    console.error('Failed to save chunk:', err)
-    // Show error feedback (you could add a toast notification here)
-    alert('Failed to save chunk. Please try again.')
+    console.error('Failed to save chunk:', err);
+    alert('Failed to save chunk. Please try again.');
   } finally {
-    isSaving.value = false
+    isSaving.value = false;
   }
 }
 
-async function deleteChunk() {
+const confirmDelete = async () => {
+  if (!chunk.value) return;
   try {
-    await apiService.deleteChunk(chunkId.value)
-    showDeleteConfirm.value = false
-    // Navigate back to book viewer
-    router.push(`/books/${bookId.value}`)
-  } catch (err) {
-    console.error('Failed to delete chunk:', err)
-    alert('Failed to delete chunk. Please try again.')
+    await apiService.deleteChunk(chunk.value.chunk_id);
+    router.push(`/books/${bookId.value}`);
+  } catch (err: any) {
+    error.value = err.message || 'Failed to delete chunk';
+  } finally {
+    showDeleteConfirm.value = false;
   }
 }
 
 function goBack() {
   if (hasChanges.value) {
-    const confirmed = confirm('You have unsaved changes. Are you sure you want to leave?')
-    if (!confirmed) return
-  }
-  router.push(`/books/${bookId.value}`)
-}
-
-// Context functions
-async function loadContext() {
-  if (!isScene.value || !hasSceneId.value || !chunkId.value) {
-    return
-  }
-
-  contextLoading.value = true
-  contextError.value = null
-
-  try {
-    const context = await apiService.getChunkContext(bookId.value, chunkId.value)
-    contextData.value = context
-  } catch (err: any) {
-    console.error('Failed to load context:', err)
-    contextError.value = err.response?.data?.error || 'Failed to load context'
-  } finally {
-    contextLoading.value = false
-  }
-}
-
-// Auto-save functionality (optional)
-let autoSaveTimer: NodeJS.Timeout | null = null
-
-function startAutoSave() {
-  if (autoSaveTimer) {
-    clearTimeout(autoSaveTimer)
-  }
-  
-  autoSaveTimer = setTimeout(() => {
-    if (hasChanges.value && !isSaving.value) {
-      saveChunk()
+    if (!confirm('You have unsaved changes. Are you sure you want to leave?')) {
+      return;
     }
-  }, 30000) // Auto-save after 30 seconds of inactivity
+  }
+  router.push(`/books/${bookId.value}`);
 }
 
-watch(() => chunkData.value.text, () => {
-  markAsChanged()
-  startAutoSave()
-})
-
-// Watch for scene ID changes to load context
-watch([isScene, hasSceneId], () => {
-  if (isScene.value && hasSceneId.value) {
-    loadContext()
+async function loadContext() {
+  if (!bookId.value || !chunkData.value?.props?.scene_id) return;
+  contextLoading.value = true;
+  contextError.value = null;
+  try {
+    const context = await apiService.getChunkContext(bookId.value, chunkId.value);
+    contextData.value = context;
+  } catch (err: any) {
+    console.error('Failed to load context:', err);
+    contextError.value = err.response?.data?.error || 'Failed to load context';
+  } finally {
+    contextLoading.value = false;
   }
-}, { immediate: false })
+}
 
-// Generation handlers
 function handleGenerationStarted(jobId: string) {
-  console.log('Generation started:', jobId)
-  // Mark chunk as locked locally
-  if (chunk.value) {
-    chunk.value.is_locked = true
-  }
-  // Reload jobs to show the new generation job
-  if (bookId.value) {
-    bookStore.loadJobs(bookId.value)
-  }
+  if (chunk.value) chunk.value.is_locked = true;
+  if (bookId.value) bookStore.loadJobs(bookId.value);
 }
 
-function handleGenerationCompleted(chunkId: string) {
-  console.log('Generation completed:', chunkId)
-  // Reload the chunk to get the new content
-  loadChunk()
-  // Reload jobs to update status
-  if (bookId.value) {
-    bookStore.loadJobs(bookId.value)
-  }
+function handleGenerationCompleted() {
+  loadChunk();
+  if (bookId.value) bookStore.loadJobs(bookId.value);
 }
 
-function handleGenerationCancelled(chunkId: string) {
-  console.log('Generation cancelled:', chunkId)
-  // Mark chunk as unlocked locally
-  if (chunk.value) {
-    chunk.value.is_locked = false
-  }
-  // Reload jobs to update status
-  if (bookId.value) {
-    bookStore.loadJobs(bookId.value)
+function handleGenerationCancelled() {
+  if (chunk.value) chunk.value.is_locked = false;
+}
+
+function handleChunkDataUpdate(updatedChunk: Partial<Chunk>) {
+  if (chunkData.value) {
+    chunkData.value = { ...chunkData.value, ...updatedChunk };
+    markAsChanged();
   }
 }
 
 function handleGenerationError(message: string) {
-  console.error('Generation error:', message)
-  error.value = message
-  // Mark chunk as unlocked locally
-  if (chunk.value) {
-    chunk.value.is_locked = false
-  }
+  error.value = message;
+  if (chunk.value) chunk.value.is_locked = false;
+}
+
+// Version history handlers
+const handleVersionRestored = async () => {
+  showVersionHistory.value = false;
+  loadChunk(); // Reload chunk to show restored content
 }
 
 // Lifecycle
@@ -598,7 +484,8 @@ onMounted(async () => {
     }
   }
   
-  await loadChunk()
+  // Load the specific chunk
+  loadChunk();
   
   // Load context after chunk is loaded
   if (isScene.value && hasSceneId.value) {
@@ -716,8 +603,30 @@ window.addEventListener('beforeunload', (e) => {
 }
 
 .delete-button:hover {
-  background: #dc2626;
+  background: #b91c1c;
   transform: translateY(-1px);
+}
+
+.history-button {
+  background: #4f46e5;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.history-button:hover:not(:disabled) {
+  background: #4338ca;
+  transform: translateY(-1px);
+}
+
+.history-button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
 }
 
 .loading-container, .error-container {

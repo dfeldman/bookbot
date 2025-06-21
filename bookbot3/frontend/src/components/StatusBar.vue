@@ -103,7 +103,15 @@ function getElapsedTime(job: Job | null): string { // Type job parameter
   if (!startTime) return '0s'
   
   const start = new Date(startTime).getTime()
-  const elapsed = Math.floor((now.value - start) / 1000)
+  let elapsed = Math.floor((now.value - start) / 1000)
+
+  // If startTime is slightly in the future due to clock differences or job not yet officially started,
+  // clamp elapsed time to 0 to prevent negative display.
+  if (elapsed < 0) {
+    // console.warn(`Negative elapsed time detected for job ${job?.job_id}. Start: ${startTime}, Now: ${new Date(now.value).toISOString()}. Clamping to 0s.`);
+    elapsed = 0; // Treat as 0 seconds elapsed
+    // return "Starting..."; // Alternative display for this state
+  }
   
   if (elapsed < 60) {
     return `${elapsed}s`

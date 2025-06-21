@@ -18,24 +18,88 @@ from urllib.parse import urljoin
 class BookBotCLI:
     """Command-line interface for BookBot operations."""
     
-    def __init__(self, base_url: str = "http://localhost:5000", admin_key: Optional[str] = None):
+    def __init__(self, base_url: str = "http://localhost:5001", admin_key: Optional[str] = None, user_api_key: Optional[str] = None):
         """
         Initialize the CLI client.
         
         Args:
             base_url: Base URL of the BookBot server
             admin_key: Admin API key for authentication
+            user_api_key: User API key for authentication (alternative to admin_key)
         """
         self.base_url = base_url.rstrip('/')
         self.api_url = f"{self.base_url}/api"
-        self.admin_key = admin_key or os.environ.get('BOOKBOT_ADMIN_KEY', 'admin-key-123')
+        self.admin_key = admin_key or os.environ.get('BOOKBOT_ADMIN_KEY')
+        self.user_api_key = user_api_key or os.environ.get('BOOKBOT_USER_API_KEY')
+        self.config_dir = os.path.expanduser('~/.bookbot')
+        self.config_file = os.path.join(self.config_dir, 'config.json')
+        
+        # Load config if it exists
+        self._load_config()
         
         self.session = requests.Session()
         self.session.headers.update({
             'Accept': 'application/json'
         })
+        
+        # Set authentication header based on available keys
         if self.admin_key:
             self.session.headers.update({'X-Admin-Key': self.admin_key})
+        elif self.user_api_key:
+            self.session.headers.update({'Authorization': f'Bearer {self.user_api_key}'})
+    
+    def _load_config(self):
+        """Load configuration from config file."""
+        if os.path.exists(self.config_file):
+            try:
+                with open(self.config_file, 'r') as f:
+                    config = json.load(f)
+                    
+                if not self.admin_key and 'admin_key' in config:
+                    self.admin_key = config['admin_key']
+                    
+                if not self.user_api_key and 'user_api_key' in config:
+                    self.user_api_key = config['user_api_key']
+            except Exception as e:
+                print(f"Warning: Could not load config file: {e}")
+    
+    def _save_config(self):
+        """Save configuration to config file."""
+        try:
+            # Create config directory if it doesn't exist
+            os.makedirs(self.config_dir, exist_ok=True)
+            
+            config = {}
+            if self.admin_key:
+                config['admin_key'] = self.admin_key
+            if self.user_api_key:
+                config['user_api_key'] = self.user_api_key
+                
+            with open(self.config_file, 'w') as f:
+                json.dump(config, f, indent=2)
+                
+            # Set secure permissions
+            os.chmod(self.config_file, 0o600)
+            print(f"✅ Saved configuration to {self.config_file}")
+        except Exception as e:
+            print(f"❌ Could not save config file: {e}")
+            
+    def set_api_key(self, api_key: str, is_admin: bool = False):
+        """Set and save API key."""
+        if is_admin:
+            self.admin_key = api_key
+            self.session.headers.update({'X-Admin-Key': api_key})
+            if 'Authorization' in self.session.headers:
+                del self.session.headers['Authorization']
+        else:
+            self.user_api_key = api_key
+            self.session.headers.update({'Authorization': f'Bearer {api_key}'})
+            if 'X-Admin-Key' in self.session.headers:
+                del self.session.headers['X-Admin-Key']
+        
+        self._save_config()
+        print(f"✅ {('Admin' if is_admin else 'User')} API key has been set")
+
     
     def _make_request(self, method: str, endpoint: str, **kwargs) -> requests.Response:
         """Make an HTTP request to the API."""
@@ -382,24 +446,216 @@ class BookBotCLI:
     
     def get_job_logs(self, job_id: str, tail: int = None):
         """Get logs for a job."""
-        print(f"📄 Getting logs for job {job_id}...")
-        response = self._make_request('GET', f'/jobs/{job_id}/logs')
+        print(f"📋 Getting logs for job {job_id}...")
+        endpoint = f"/jobs/{job_id}/logs"
+        params = {}
+        
+        if tail:
+            params['tail'] = tail
+            
+        response = self._make_request('GET', endpoint, params=params)
         data = self._handle_response(response)
         
         logs = data.get('logs', [])
         if not logs:
             print("No logs found.")
-            return
-        
-        if tail and len(logs) > tail:
-            logs = logs[-tail:]
-            print(f"Showing last {tail} log entries:")
-        else:
-            print(f"Found {len(logs)} log entries:")
+            return logs
         
         for log in logs:
-            timestamp = log['created_at'][:19]  # Remove microseconds
-            print(f"[{timestamp}] {log['log_level']}: {log['log_entry']}")
+            created_at = log.get('created_at', '')
+            log_level = log.get('log_level', 'INFO')
+            log_entry = log.get('log_entry', '')
+            
+            level_color = {
+                'DEBUG': '',
+                'INFO': '',
+                'WARNING': '\033[93m',  # Yellow
+                'ERROR': '\033[91m',    # Red
+                'LLM': '\033[96m'       # Cyan
+            }.get(log_level, '')
+            reset = '\033[0m'
+            
+            print(f"{created_at} {level_color}[{log_level}]{reset} {log_entry}")
+            
+        return logs
+        
+    def wait_for_job(self, job_id: str, timeout_seconds: int = 600, poll_interval_seconds: int = 5, verbose: bool = True):
+        """Wait for a job to complete with timeout.
+        
+        Args:
+            job_id: ID of the job to wait for
+            timeout_seconds: Maximum time to wait in seconds
+            poll_interval_seconds: How often to check job status
+            verbose: Whether to print status updates
+            
+        Returns:
+            The completed job data or None if timed out
+        """
+        import time
+        
+        start_time = time.time()
+        last_log_id = 0
+        
+        if verbose:
+            print(f"⏳ Waiting for job {job_id} to complete (timeout: {timeout_seconds}s)...")
+            
+        while True:
+            # Check job status
+            job = self.get_job(job_id)
+            
+            if not job:
+                if verbose:
+                    print(f"❌ Job {job_id} not found")
+                return None
+                
+            # Get current state
+            state = job.get('state', '').lower()
+            
+            # Print latest logs in verbose mode
+            if verbose:
+                logs = self.get_job_logs(job_id)
+                if logs and len(logs) > 0:
+                    latest_log_id = logs[-1]['id']
+                    if latest_log_id > last_log_id:
+                        last_log_id = latest_log_id
+            
+            # Check if job finished
+            if state in ['complete', 'error', 'cancelled']:
+                if verbose:
+                    status_icon = {
+                        'complete': '✅',
+                        'error': '❌',
+                        'cancelled': '🛑'
+                    }.get(state, '⚪')
+                    print(f"{status_icon} Job {job_id} finished with state: {state}")
+                    
+                    if state == 'error' and job.get('error_message'):
+                        print(f"Error message: {job['error_message']}")
+                return job
+                
+            # Check timeout
+            elapsed = time.time() - start_time
+            if elapsed > timeout_seconds:
+                if verbose:
+                    print(f"⏰ Timeout reached after {elapsed:.2f}s, job is still in state: {state}")
+                return None
+                
+            # Wait for next poll
+            time.sleep(poll_interval_seconds)
+    
+    def check_lock_status(self, book_id: str):
+        """Check if a book is locked and by which job."""
+        book = self.get_book(book_id)
+        
+        if not book:
+            print(f"❌ Book {book_id} not found")
+            return False, None
+            
+        is_locked = book.get('is_locked', False)
+        job_id = book.get('job')
+        
+        if is_locked:
+            print(f"🔒 Book {book_id} is locked by job: {job_id}")
+            if job_id:
+                # Get job details
+                job = self.get_job(job_id)
+                job_type = job.get('job_type', 'unknown') if job else 'unknown'
+                state = job.get('state', 'unknown') if job else 'unknown'
+                print(f"   Job type: {job_type}, State: {state}")
+        else:
+            print(f"🔓 Book {book_id} is unlocked")
+            
+        return is_locked, job_id
+        
+    def setup_book(self, title: str, genre: str, brief: str, style: str = "Contemporary", 
+                   wait_for_completion: bool = True, timeout_seconds: int = 600):
+        """Complete book setup workflow: create book and run create_foundation job.
+        
+        Args:
+            title: Book title
+            genre: Book genre
+            brief: Brief description of the book
+            style: Writing style
+            wait_for_completion: Whether to wait for job completion
+            timeout_seconds: Maximum time to wait for job completion
+            
+        Returns:
+            Tuple of (book_id, job_id)
+        """
+        print(f"📚 Setting up new book: '{title}'")
+        print(f"   Genre: {genre}")
+        print(f"   Brief: {brief}")
+        
+        # Step 1: Create the book
+        try:
+            book_data = self.create_book(title, genre, model_mode="gpt-4")
+            book_id = book_data['book_id']
+            print(f"✅ Book created with ID: {book_id}")
+        except Exception as e:
+            print(f"❌ Failed to create book: {e}")
+            return None, None
+            
+        # Step 2: Create foundation job
+        try:
+            job_data = self.create_job(book_id, "create_foundation", 
+                                      title=title,
+                                      genre=genre,
+                                      brief=brief,
+                                      style=style)
+            job_id = job_data['job_id']
+            print(f"✅ Foundation job created with ID: {job_id}")
+        except Exception as e:
+            print(f"❌ Failed to create foundation job: {e}")
+            return book_id, None
+            
+        # Step 3: Wait for job completion if requested
+        if wait_for_completion:
+            print(f"⏳ Waiting for create_foundation job to complete...")
+            completed_job = self.wait_for_job(job_id, timeout_seconds=timeout_seconds)
+            
+            if completed_job and completed_job.get('state') == 'complete':
+                print(f"✅ Book foundation completed successfully")
+                # Check book lock status after completion
+                is_locked, _ = self.check_lock_status(book_id)
+                if is_locked:
+                    print("   Warning: Book is still locked after job completion")
+            else:
+                print(f"❌ Job did not complete successfully within timeout")
+                
+        return book_id, job_id
+        
+    def generate_chunk_text(self, book_id: str, chunk_id: str, wait_for_completion: bool = True, 
+                         timeout_seconds: int = 300):
+        """Generate text for a specific chunk using the generate_text job."""
+        print(f"📝 Generating text for chunk {chunk_id} in book {book_id}...")
+        
+        # Create generate_text job
+        try:
+            job_data = self.create_job(book_id, "generate_text", chunk_id=chunk_id)
+            job_id = job_data['job_id']
+            print(f"✅ Text generation job created with ID: {job_id}")
+        except Exception as e:
+            print(f"❌ Failed to create text generation job: {e}")
+            return None
+            
+        # Wait for job completion if requested
+        if wait_for_completion:
+            completed_job = self.wait_for_job(job_id, timeout_seconds=timeout_seconds)
+            if completed_job and completed_job.get('state') == 'complete':
+                print(f"✅ Text generation completed successfully")
+                
+                # Fetch the updated chunk
+                try:
+                    chunk = self.get_chunk(chunk_id)
+                    if chunk and chunk.get('text'):
+                        text_preview = chunk['text'][:100] + '...' if len(chunk['text']) > 100 else chunk['text']
+                        print(f"📄 Generated text: {text_preview}")
+                except:
+                    pass
+            else:
+                print(f"❌ Text generation did not complete successfully within timeout")
+                
+        return job_id
     
     def export_book_html(self, book_id: str, output_file: str = None):
         """Export a book as HTML with all chunks in order."""
@@ -706,25 +962,37 @@ class BookBotCLI:
         
         return html
 
-    # ...existing code...
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(description='BookBot CLI Tool')
-    parser.add_argument('--url', default='http://localhost:5000', help='BookBot server URL')
-    parser.add_argument('--admin-key', help='Admin API key (or set BOOKBOT_ADMIN_KEY env var)')
-    parser.add_argument('--json', action='store_true', help='Output in JSON format')
+    parser.add_argument('--url', default='http://localhost:5001', help='Base URL for the BookBot server')
+    parser.add_argument('--admin-key', help='Admin API key')
+    parser.add_argument('--user-api-key', help='User API key')
+    parser.add_argument('command', nargs='?', choices=['health', 'config', 'books', 'chunks', 'jobs', 'setup', 'auth'], help='Command to execute')
     
-    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    # Subparsers for the primary commands
+    subparsers = parser.add_subparsers(dest='command')
     
-    # Health and config commands
-    subparsers.add_parser('health', help='Check server health')
-    subparsers.add_parser('config', help='Get server configuration')
+    # Health check commands
+    health_parser = subparsers.add_parser('health', help='Check server health')
+    
+    # Config commands
+    config_parser = subparsers.add_parser('config', help='Get server configuration')
+    
+    # Auth commands
+    auth_parser = subparsers.add_parser('auth', help='Authentication management')
+    auth_subparsers = auth_parser.add_subparsers(dest='auth_action')
+    
+    set_key_parser = auth_subparsers.add_parser('set-key', help='Set API key')
+    set_key_parser.add_argument('api_key', help='API key to store')
+    set_key_parser.add_argument('--admin', action='store_true', help='Set as admin key instead of user key')
     
     # Book commands
     book_parser = subparsers.add_parser('books', help='Book operations')
     book_subparsers = book_parser.add_subparsers(dest='book_action')
     
-    book_subparsers.add_parser('list', help='List all books')
+    list_books_parser = book_subparsers.add_parser('list', help='List all books')
     
     get_book_parser = book_subparsers.add_parser('get', help='Get a specific book')
     get_book_parser.add_argument('book_id', help='Book ID')
@@ -736,7 +1004,7 @@ def main():
     
     update_book_parser = book_subparsers.add_parser('update', help='Update a book')
     update_book_parser.add_argument('book_id', help='Book ID')
-    update_book_parser.add_argument('--props', required=True, help='Properties to update as JSON')
+    update_book_parser.add_argument('--props', required=True, help='Properties as JSON')
     
     delete_book_parser = book_subparsers.add_parser('delete', help='Delete a book')
     delete_book_parser.add_argument('book_id', help='Book ID')
@@ -744,17 +1012,20 @@ def main():
     status_book_parser = book_subparsers.add_parser('status', help='Get book status')
     status_book_parser.add_argument('book_id', help='Book ID')
     
-    export_book_parser = book_subparsers.add_parser('export', help='Export book as HTML')
+    check_lock_parser = book_subparsers.add_parser('check-lock', help='Check book lock status')
+    check_lock_parser.add_argument('book_id', help='Book ID')
+    
+    export_book_parser = book_subparsers.add_parser('export', help='Export a book as HTML')
     export_book_parser.add_argument('book_id', help='Book ID')
-    export_book_parser.add_argument('--output', help='Output filename (default: auto-generated)')
+    export_book_parser.add_argument('--output', '-o', help='Output file')
     
     # Chunk commands
     chunk_parser = subparsers.add_parser('chunks', help='Chunk operations')
     chunk_subparsers = chunk_parser.add_subparsers(dest='chunk_action')
     
-    list_chunks_parser = chunk_subparsers.add_parser('list', help='List chunks for a book')
+    list_chunks_parser = chunk_subparsers.add_parser('list', help='List chunks')
     list_chunks_parser.add_argument('book_id', help='Book ID')
-    list_chunks_parser.add_argument('--text', action='store_true', help='Include chunk text')
+    list_chunks_parser.add_argument('--text', action='store_true', help='Include text content')
     list_chunks_parser.add_argument('--deleted', action='store_true', help='Include deleted chunks')
     list_chunks_parser.add_argument('--chapter', type=int, help='Filter by chapter number')
     
@@ -767,19 +1038,25 @@ def main():
     create_chunk_parser.add_argument('text', help='Chunk text')
     create_chunk_parser.add_argument('--type', help='Chunk type')
     create_chunk_parser.add_argument('--chapter', type=int, help='Chapter number')
-    create_chunk_parser.add_argument('--order', type=float, help='Sort order')
+    create_chunk_parser.add_argument('--order', type=float, help='Order within chapter')
     create_chunk_parser.add_argument('--props', help='Additional properties as JSON')
     
     update_chunk_parser = chunk_subparsers.add_parser('update', help='Update a chunk')
     update_chunk_parser.add_argument('chunk_id', help='Chunk ID')
-    update_chunk_parser.add_argument('--text', help='New chunk text')
-    update_chunk_parser.add_argument('--props', help='Properties to update as JSON')
+    update_chunk_parser.add_argument('--text', help='New text content')
+    update_chunk_parser.add_argument('--props', help='Additional properties as JSON')
     
     delete_chunk_parser = chunk_subparsers.add_parser('delete', help='Delete a chunk')
     delete_chunk_parser.add_argument('chunk_id', help='Chunk ID')
     
     versions_chunk_parser = chunk_subparsers.add_parser('versions', help='List chunk versions')
     versions_chunk_parser.add_argument('chunk_id', help='Chunk ID')
+    
+    generate_chunk_parser = chunk_subparsers.add_parser('generate', help='Generate text for a chunk')
+    generate_chunk_parser.add_argument('book_id', help='Book ID')
+    generate_chunk_parser.add_argument('chunk_id', help='Chunk ID')
+    generate_chunk_parser.add_argument('--no-wait', action='store_true', help='Do not wait for job completion')
+    generate_chunk_parser.add_argument('--timeout', type=int, default=300, help='Timeout for waiting (seconds)')
     
     # Job commands
     job_parser = subparsers.add_parser('jobs', help='Job operations')
@@ -794,7 +1071,7 @@ def main():
     
     create_job_parser = job_subparsers.add_parser('create', help='Create a new job')
     create_job_parser.add_argument('book_id', help='Book ID')
-    create_job_parser.add_argument('job_type', help='Job type (e.g., demo)')
+    create_job_parser.add_argument('job_type', help='Job type (e.g., demo, create_foundation, generate_text)')
     create_job_parser.add_argument('--props', help='Job properties as JSON')
     
     cancel_job_parser = job_subparsers.add_parser('cancel', help='Cancel a job')
@@ -804,6 +1081,23 @@ def main():
     logs_job_parser.add_argument('job_id', help='Job ID')
     logs_job_parser.add_argument('--tail', type=int, help='Show last N log entries')
     
+    wait_job_parser = job_subparsers.add_parser('wait', help='Wait for job completion')
+    wait_job_parser.add_argument('job_id', help='Job ID')
+    wait_job_parser.add_argument('--timeout', type=int, default=600, help='Maximum wait time in seconds')
+    wait_job_parser.add_argument('--poll', type=int, default=5, help='Poll interval in seconds')
+    
+    # Setup workflow commands
+    setup_parser = subparsers.add_parser('setup', help='Book setup workflows')
+    setup_subparsers = setup_parser.add_subparsers(dest='setup_action')
+    
+    new_book_parser = setup_subparsers.add_parser('new-book', help='Create a new book with foundation')
+    new_book_parser.add_argument('title', help='Book title')
+    new_book_parser.add_argument('genre', help='Book genre')
+    new_book_parser.add_argument('brief', help='Brief description of the book')
+    new_book_parser.add_argument('--style', default='Contemporary', help='Writing style')
+    new_book_parser.add_argument('--no-wait', action='store_true', help='Do not wait for job completion')
+    new_book_parser.add_argument('--timeout', type=int, default=600, help='Timeout for waiting (seconds)')
+    
     args = parser.parse_args()
     
     if not args.command:
@@ -811,7 +1105,7 @@ def main():
         return
     
     # Initialize CLI client
-    cli = BookBotCLI(base_url=args.url, admin_key=args.admin_key)
+    cli = BookBotCLI(base_url=args.url, admin_key=args.admin_key, user_api_key=args.user_api_key)
     
     try:
         # Execute commands
@@ -819,6 +1113,11 @@ def main():
             cli.health_check()
         elif args.command == 'config':
             cli.get_config()
+        elif args.command == 'auth':
+            if args.auth_action == 'set-key':
+                cli.set_api_key(args.api_key, args.admin)
+            else:
+                auth_parser.print_help()
         elif args.command == 'books':
             if args.book_action == 'list':
                 cli.list_books()
@@ -834,8 +1133,12 @@ def main():
                 cli.delete_book(args.book_id)
             elif args.book_action == 'status':
                 cli.get_book_status(args.book_id)
+            elif args.book_action == 'check-lock':
+                cli.check_lock_status(args.book_id)
             elif args.book_action == 'export':
                 cli.export_book_html(args.book_id, args.output)
+            else:
+                book_parser.print_help()
         elif args.command == 'chunks':
             if args.chunk_action == 'list':
                 cli.list_chunks(args.book_id, args.text, args.deleted, args.chapter)
@@ -851,6 +1154,11 @@ def main():
                 cli.delete_chunk(args.chunk_id)
             elif args.chunk_action == 'versions':
                 cli.list_chunk_versions(args.chunk_id)
+            elif args.chunk_action == 'generate':
+                wait_for_completion = not args.no_wait
+                cli.generate_chunk_text(args.book_id, args.chunk_id, wait_for_completion, args.timeout)
+            else:
+                chunk_parser.print_help()
         elif args.command == 'jobs':
             if args.job_action == 'list':
                 cli.list_jobs(args.book_id, args.state)
@@ -863,6 +1171,17 @@ def main():
                 cli.cancel_job(args.job_id)
             elif args.job_action == 'logs':
                 cli.get_job_logs(args.job_id, args.tail)
+            elif args.job_action == 'wait':
+                cli.wait_for_job(args.job_id, args.timeout, args.poll)
+            else:
+                job_parser.print_help()
+        elif args.command == 'setup':
+            if args.setup_action == 'new-book':
+                wait_for_completion = not args.no_wait
+                cli.setup_book(args.title, args.genre, args.brief, args.style, 
+                              wait_for_completion, args.timeout)
+            else:
+                setup_parser.print_help()
     
     except KeyboardInterrupt:
         print("\n👋 Goodbye!")

@@ -80,15 +80,16 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { apiService } from '../services/api';
-import { useBookStore, type Job } from '../stores/book';
+import { useBookStore } from '../stores/book';
+import { useJobStore } from '../stores/jobStore';
+import type { Job } from '../stores/types';
 import { 
   formatJobState, 
   formatJobType, 
   getStatusIcon, 
   formatDateTime, 
   formatDuration
-} from '../utils/jobFormatters'; // Assuming you'll centralize formatters
+} from '../utils/jobFormatters';
 
 const formatCurrency = (value: number | null | undefined): string => {
   if (value === null || typeof value === 'undefined' || Number.isNaN(value)) {
@@ -105,28 +106,29 @@ const formatCurrency = (value: number | null | undefined): string => {
 const route = useRoute();
 const router = useRouter();
 const bookStore = useBookStore();
+const jobStore = useJobStore();
 
 const jobId = route.params.jobId as string;
-const job = ref<Job | null>(null);
-const loading = ref(false);
+const job = computed(() => jobStore.currentJobDetails);
+const loading = computed(() => jobStore.isJobDetailsLoading);
 
 async function loadJobDetails() {
-  loading.value = true;
   try {
-    // Ensure no /api prefix here, ApiService handles it
-    const response = await apiService.getJob(jobId); 
-    job.value = response;
+    // Get job details from job store
+    await jobStore.fetchJobDetails(jobId);
+    
+    // Also make sure we have book info loaded
+    if (job.value && job.value.book_id) {
+      await bookStore.loadBooks();
+    }
   } catch (error) {
     console.error('Failed to load job details:', error);
-    job.value = null;
-  } finally {
-    loading.value = false;
   }
 }
 
 function getBookName(bookId: string): string {
-  const book = bookStore.books.find(b => b.id === bookId);
-  return book ? book.title : 'Unknown Book';
+  const book = bookStore.books.find(b => b.book_id === bookId);
+  return book ? book.props.name || 'Untitled Book' : 'Unknown Book';
 }
 
 function goBackToJobsList() {

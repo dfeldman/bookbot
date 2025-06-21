@@ -1,4 +1,5 @@
-import { vi } from 'vitest'
+import { vi, beforeEach } from 'vitest'
+import { setActivePinia, createPinia } from 'pinia'
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -28,3 +29,8 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
   unobserve: vi.fn(),
   disconnect: vi.fn(),
 }))
+
+// Setup Pinia for testing
+beforeEach(() => {
+  setActivePinia(createPinia())
+})

@@ -4,7 +4,27 @@ from unittest.mock import patch, MagicMock
 
 from backend.models import db, User, Book, Chunk, Job, JobLog
 from backend.jobs.generate_text import GenerateTextJob
-from backend.jobs import get_job_processor
+from backend.jobs import get_job_processor, BaseJob
+
+# Helper class for testing processor state commits
+class MockJob(BaseJob):
+    def __init__(self, job, success=True, error=None):
+        super().__init__(job)
+        self.should_succeed = success
+        self.error_to_raise = error
+
+    def execute(self):
+        self.log("MockJob execute started.")
+        if self.error_to_raise:
+            self.log(f"MockJob raising error: {self.error_to_raise}")
+            raise self.error_to_raise
+        if self.should_succeed:
+            self.log("MockJob execute finished successfully.")
+            return True
+        else:
+            self.log("MockJob execute finished with failure.")
+            self.job.error_message = "Mock job failed as requested."
+            return False
 
 class TestJobSystemIntegration:
     """Test cases for job system integration with GenerateTextJob."""
@@ -213,3 +233,110 @@ class TestJobSystemIntegration:
                     db.session.refresh(scene_chunk)
                     
                     assert mode.upper() in scene_chunk.text, f"Chunk should contain {mode} content"
+
+    class MockJob(BaseJob):
+        def execute(self) -> bool:
+            """Execute mock job based on job.props."""
+            test_case = self.job.props.get('test_case')
+
+            if test_case == 'success':
+                self.log("MockJob executed successfully.")
+                return True
+            
+            if test_case == 'failure':
+                self.log("MockJob failed as requested.", level='ERROR')
+                return False
+
+            if test_case == 'exception':
+                error_message = self.job.props.get('error_message', "Execution exploded")
+                raise ValueError(error_message)
+
+            # Default behavior if test_case is not set
+            self.log("MockJob executed with no test_case specified, returning True.", level='WARNING')
+            return True
+
+    def test_process_job_success_state_commit(self, app):
+        """Test that _process_job commits 'completed' state and logs."""
+        test_data = self.setup_test_data(app)
+
+        with app.app_context():
+            job = Job(
+                job_id='test-commit-success',
+                book_id=test_data['book_id'],
+                job_type='mock_job',
+                state='waiting',
+                props={'test_case': 'success'}
+            )
+            db.session.add(job)
+            db.session.commit()
+            job_pk = job.job_id
+
+        processor = get_job_processor()
+        processor.register('mock_job', self.MockJob)
+
+        processor._process_job(job)
+
+        with app.app_context():
+            processed_job = db.session.get(Job, job_pk)
+            assert processed_job.state == 'completed'
+            assert processed_job.completed_at is not None
+            logs = JobLog.query.filter_by(job_id=job_pk).all()
+            assert any("MockJob executed successfully." in log.log_entry for log in logs)
+
+    def test_process_job_failure_state_commit(self, app):
+        """Test that _process_job commits 'failed' state and logs."""
+        test_data = self.setup_test_data(app)
+
+        with app.app_context():
+            job = Job(
+                job_id='test-commit-failure',
+                book_id=test_data['book_id'],
+                job_type='mock_job',
+                state='waiting',
+                props={'test_case': 'failure'}
+            )
+            db.session.add(job)
+            db.session.commit()
+            job_pk = job.job_id
+
+        processor = get_job_processor()
+        processor.register('mock_job', self.MockJob)
+
+        processor._process_job(job)
+
+        with app.app_context():
+            processed_job = db.session.get(Job, job_pk)
+            assert processed_job.state == 'failed'
+            assert processed_job.completed_at is not None
+            logs = JobLog.query.filter_by(job_id=job_pk).all()
+            assert any("MockJob failed as requested." in log.log_entry for log in logs)
+
+    def test_process_job_exception_state_commit(self, app):
+        """Test that _process_job commits 'error' state on exception."""
+        test_data = self.setup_test_data(app)
+
+        with app.app_context():
+            job = Job(
+                job_id='test-commit-exception',
+                book_id=test_data['book_id'],
+                job_type='mock_job',
+                state='waiting',
+                props={'test_case': 'exception', 'error_message': 'Execution exploded'}
+            )
+            db.session.add(job)
+            db.session.commit()
+            job_pk = job.job_id
+
+        processor = get_job_processor()
+        processor.register('mock_job', self.MockJob)
+
+        processor._process_job(job)
+
+        with app.app_context():
+            processed_job = db.session.get(Job, job_pk)
+            assert processed_job.state == 'error'
+            assert processed_job.completed_at is not None
+            
+            # In case of an exception, the error is stored in the job's error_message field,
+            # not in separate JobLog entries.
+            assert "ValueError: Execution exploded" in processed_job.error_message

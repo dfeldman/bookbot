@@ -77,10 +77,17 @@ dev:
 	@make run-frontend
 
 # Testing
-test: test-backend
+test: test-backend test-frontend
 
 test-backend: $(VENV_DIR)/bin/activate
 	$(VENV_DIR)/bin/python -m pytest $(BACKEND_DIR)/tests/ -v
+
+test-frontend:
+	@if [ -d "$(FRONTEND_DIR)" ] && [ -f "$(FRONTEND_DIR)/package.json" ]; then \
+		cd $(FRONTEND_DIR) && npm test; \
+	else \
+		echo "Frontend not set up yet. Skipping frontend tests."; \
+	fi
 
 # Database management
 db-init: $(VENV_DIR)/bin/activate

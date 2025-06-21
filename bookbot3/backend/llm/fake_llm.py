@@ -133,9 +133,10 @@ class FakeLLMCall:
             return True
             
         except Exception as e:
-            self.error_status = str(e)
             if self.log_callback:
-                self.log_callback(f"Error in fake LLM: {e}")
+                self.log_callback(f"Error during fake LLM generation: {e}")
+            self.error_status = str(e)
+            self.execution_time = time.time() - start_time
             return False
             
         finally:
@@ -157,6 +158,10 @@ class FakeLLMCall:
     
     def _generate_smart_content(self) -> str:
         """Generate content based on the prompt for more realistic testing."""
+        if not self.prompt or not self.prompt.strip():
+            # If prompt is empty or just whitespace, fall back to generic structured text
+            return self._generate_structured_text()
+
         prompt_lower = self.prompt.lower()
         
         # Detect what type of content to generate based on prompt

@@ -147,8 +147,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useBookStore, type Job } from '../stores/book'
-import { apiService } from '../services/api'
+import { useBookStore } from '../stores/book'
+import { useJobStore } from '../stores/jobStore'
+import type { Job } from '../stores/types'
+import { 
+  getStatusIcon,
+  formatJobState, 
+  formatJobType, 
+  formatDateTime,
+  formatDuration
+} from '../utils/jobFormatters'
 
 interface JobLog {
   id: string;
@@ -165,6 +173,7 @@ interface JobLog {
 const route = useRoute()
 const router = useRouter()
 const bookStore = useBookStore()
+const jobStore = useJobStore()
 
 const formatCurrency = (value: number | null | undefined): string => {
   if (value === null || typeof value === 'undefined' || Number.isNaN(value)) {
@@ -179,14 +188,14 @@ const formatCurrency = (value: number | null | undefined): string => {
 
 // State
 const jobId = route.params.jobId as string
-const job = ref<Job | null>(null)
-const logs = ref<JobLog[]>([])
-const loading = ref(false)
+const job = computed(() => jobStore.currentJobDetails)
+const logs = computed(() => jobStore.currentJobLogs as JobLog[])
+const loading = computed(() => jobStore.isJobLogsLoading)
 const selectedLogLevel = ref('')
 const searchQuery = ref('')
 const autoScroll = ref(true)
 const logsContainer = ref<HTMLElement | null>(null)
-const refreshInterval = ref<number | null>(null)
+const autoRefreshTimer = ref<number | null>(null)
 
 // Computed
 const books = computed(() => bookStore.books)
@@ -228,35 +237,57 @@ const logStats = computed(() => {
 // Methods
 async function loadJob() {
   try {
-    const response = await apiService.get(`/jobs/${jobId}`)
-    job.value = response
+    // Get job details from job store
+    await jobStore.fetchJobDetails(jobId)
+    
+    // Also make sure we have book info loaded
+    if (job.value && job.value.book_id) {
+      await bookStore.loadBooks()
+    }
+    
+    loadLogs()
   } catch (error) {
     console.error('Failed to load job:', error)
-    job.value = null
   }
 }
 
 async function loadLogs() {
-  loading.value = true
-  
   try {
-    const response = await apiService.get(`/jobs/${jobId}/logs`)
-    logs.value = response.logs || []
+    await jobStore.fetchJobLogs(jobId)
+    filterLogs()
     
-    if (autoScroll.value) {
+    // If job is still running, set up auto refresh
+    if (job.value && (job.value.state === 'running' || job.value.state === 'waiting' || job.value.state === 'pending')) {
+      startAutoRefresh()
+    } else {
+      stopAutoRefresh()
+    }
+    
+    // Auto-scroll if enabled
+    if (autoScroll.value && logs.value.length > 0) {
       await nextTick()
       scrollToBottom()
     }
   } catch (error) {
     console.error('Failed to load logs:', error)
-    logs.value = []
-  } finally {
-    loading.value = false
   }
 }
 
 async function refreshLogs() {
-  await Promise.all([loadJob(), loadLogs()])
+  try {
+    // Refresh job details first to see if state changed
+    await jobStore.fetchJobDetails(jobId)
+    await jobStore.fetchJobLogs(jobId)
+    filterLogs()
+    
+    // Auto-scroll if enabled
+    if (autoScroll.value && logs.value.length > 0) {
+      await nextTick()
+      scrollToBottom()
+    }
+  } catch (error) {
+    console.error('Failed to refresh logs:', error)
+  }
 }
 
 function filterLogs() {
@@ -319,8 +350,8 @@ function formatJobType(jobType: string): string {
 }
 
 function getBookName(bookId: string): string {
-  const book = books.value.find(b => b.book_id === bookId)
-  return book?.props?.name || 'Unknown Book'
+  const book = bookStore.books.find(b => b.book_id === bookId)
+  return book ? book.props.name || 'Untitled Book' : 'Unknown Book'
 }
 
 function formatDateTime(dateString: string): string {
@@ -356,9 +387,9 @@ function formatDuration(job: Job): string {
 }
 
 function startAutoRefresh() {
-  if (refreshInterval.value) return // Already running
+  if (autoRefreshTimer.value) return // Already running
 
-  refreshInterval.value = window.setInterval(async () => {
+  autoRefreshTimer.value = window.setInterval(async () => {
     await refreshLogs() // This will call loadJob() and loadLogs()
 
     // After refreshing, check the job's state
@@ -369,9 +400,9 @@ function startAutoRefresh() {
 }
 
 function stopAutoRefresh() {
-  if (refreshInterval.value) {
-    clearInterval(refreshInterval.value)
-    refreshInterval.value = null
+  if (autoRefreshTimer.value) {
+    clearInterval(autoRefreshTimer.value)
+    autoRefreshTimer.value = null
   }
 }
 

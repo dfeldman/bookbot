@@ -8,9 +8,11 @@ settings, and adding tags and scene IDs. It's a comprehensive book setup job.
 import re
 import os
 import yaml
-from typing import Dict, Any, List
+import traceback
+from typing import Dict, Any, List, Optional
 from flask import current_app
 from sqlalchemy import asc
+from backend.models import generate_uuid
 
 from backend.models import db, Book, Chunk
 from backend.bot_manager import get_bot_manager
@@ -48,6 +50,15 @@ def run_create_foundation_job(job_id: str, book_id: str, props: Dict[str, Any], 
         
         brief = props['brief']
         style = props['style']
+        
+        # Ensure brief and style are not None
+        if brief is None:
+            log_callback("ERROR: 'brief' property cannot be None")
+            brief = ""  # Set to empty string to prevent errors
+        
+        if style is None:
+            log_callback("ERROR: 'style' property cannot be None")
+            style = ""  # Set to empty string to prevent errors
         
         # Get book and user information
         book = Book.query.filter_by(book_id=book_id).first()
@@ -342,30 +353,48 @@ def _add_tags_to_content(content: str, content_type: str, book_props: Dict[str, 
         return content  # Return original content if tagging fails
 
 
-def _create_chunk(book_id: str, chunk_type: str, text: str, chapter: int, 
+def _create_chunk(book_id: str, chunk_type: str, text: str, chapter: Optional[int], 
                  order: float, props: Dict[str, Any], log_callback) -> Chunk:
     """Create a chunk in the database."""
     try:
-        with current_app.app_context():
-            chunk = Chunk(
-                book_id=book_id,
-                text=text,
-                type=chunk_type,
-                chapter=chapter,
-                order=order,
-                props=props,
-                word_count=Chunk.count_words(text)  # Calculate word count
-            )
+        log_callback(f"Debug: Creating {chunk_type} chunk with: book_id={book_id}, text={text[:20] if text else 'None'}..., chapter={chapter}, order={order}, props={props}")
+        
+        # Explicitly ensure props is a dictionary and not None
+        if props is None:
+            props = {}
+            log_callback("Debug: props was None, setting to empty dict")
             
-            db.session.add(chunk)
-            db.session.commit()
+        # Make sure text is a string
+        if text is None:
+            text = ""
+            log_callback("Debug: text was None, setting to empty string")
             
-            log_callback(f"Created {chunk_type} chunk: {chunk.chunk_id[:8]}...")
-            return chunk
-            
+        # Generate UUID for chunk_id to ensure it's available before DB operations
+        chunk_id = generate_uuid()
+        
+        # Create chunk with explicit parameters to avoid None issues
+        chunk = Chunk(
+            book_id=book_id,
+            chunk_id=chunk_id,  # Pre-generate UUID to avoid None
+            text=text,
+            type=chunk_type,
+            chapter=chapter,  # This is now Optional[int], so None is explicitly allowed
+            order=order,
+            props=props,
+            word_count=Chunk.count_words(text)  # Explicitly calculate word count
+        )
+        
+        db.session.add(chunk)
+        # Flush to ensure all attributes are populated (like auto-assigned IDs)
+        db.session.flush()
+        
+        # Now chunk_id is guaranteed to be set
+        log_callback(f"Created {chunk_type} chunk: {chunk.chunk_id[:8]}...")
+        return chunk
+        
     except Exception as e:
         log_callback(f"Error creating {chunk_type} chunk: {str(e)}")
-        db.session.rollback()
+        log_callback(f"Debug: Traceback: {traceback.format_exc()}")
         raise
 
 

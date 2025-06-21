@@ -1,15 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import GenerateChunkText from '@/components/GenerateChunkText.vue'
+import BotManager from '@/components/BotManager.vue'
 import { useBookStore } from '@/stores/book'
 import { apiService } from '@/services/api'
 
 // Mock the API service
 vi.mock('@/services/api', () => ({
   apiService: {
-    createJob: vi.fn(),
-    getJob: vi.fn(),
+    getChunks: vi.fn(),
+    createChunk: vi.fn(),
+    updateChunk: vi.fn(),
+    deleteChunk: vi.fn(),
   }
 }))
 
@@ -17,8 +19,7 @@ vi.mock('@/services/api', () => ({
 vi.mock('vue-router', () => ({
   useRoute: () => ({
     params: {
-      bookId: '1',
-      chunkId: '1'
+      bookId: '1'
     }
   }),
   useRouter: () => ({
@@ -26,7 +27,7 @@ vi.mock('vue-router', () => ({
   })
 }))
 
-describe('GenerateChunkText', () => {
+describe('BotManager', () => {
   let wrapper: any
   let bookStore: any
 
@@ -35,19 +36,9 @@ describe('GenerateChunkText', () => {
     bookStore = useBookStore()
     
     // Mock API responses
-    vi.mocked(apiService.createJob).mockResolvedValue({
-      job_id: 'job-123',
-      book_id: '1',
-      job_type: 'generate_text',
-      state: 'waiting',
-      created_at: new Date().toISOString()
-    })
+    vi.mocked(apiService.getChunks).mockResolvedValue({ chunks: [] })
 
-    wrapper = mount(GenerateChunkText, {
-      props: {
-        chunkId: '1',
-        bookId: '1'
-      },
+    wrapper = mount(BotManager, {
       global: {
         plugins: [createPinia()],
       }

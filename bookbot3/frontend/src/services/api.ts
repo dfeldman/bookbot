@@ -1,5 +1,19 @@
 import axios, { AxiosInstance } from 'axios'
 
+export interface LLMInfo {
+  id: string;
+  name: string;
+  description: string;
+  company: string;
+  router: string;
+  context_length: number;
+  input_cost_per_mtok: number;
+  output_cost_per_mtok: number;
+  seconds_per_output_mtok: number;
+  groups: string[];
+  quality_score: number;
+}
+
 class ApiService {
   private api: AxiosInstance
 
@@ -63,6 +77,32 @@ class ApiService {
     await this.api.delete(`/books/${bookId}`)
   }
 
+  // LLM endpoints
+  async getLlmCatalog(): Promise<{ llms: LLMInfo[] }> {
+    const response = await this.api.get('/llms');
+    return response.data;
+  }
+
+  async getLlmDefaults(bookId: string): Promise<{ [key: string]: string }> {
+    const response = await this.api.get(`/llms/books/${bookId}/defaults`);
+    return response.data;
+  }
+
+  async updateLlmDefaults(bookId: string, defaults: { [key: string]: string }): Promise<any> {
+    const response = await this.api.put(`/llms/books/${bookId}/defaults`, defaults);
+    return response.data;
+  }
+
+  async getLlmOverride(bookId: string): Promise<{ llm_id: string | null }> {
+    const response = await this.api.get(`/llms/books/${bookId}/override`);
+    return response.data;
+  }
+
+  async updateLlmOverride(bookId: string, llmId: string | null): Promise<any> {
+    const response = await this.api.put(`/llms/books/${bookId}/override`, { llm_id: llmId });
+    return response.data;
+  }
+
   // Chunk endpoints
   async getChunks(bookId: string, params?: any): Promise<{ chunks: any[] }> {
     const response = await this.api.get(`/books/${bookId}/chunks`, { params })
@@ -86,6 +126,25 @@ class ApiService {
 
   async deleteChunk(chunkId: string): Promise<void> {
     await this.api.delete(`/chunks/${chunkId}`)
+  }
+
+  // Chunk version endpoints
+  async getChunkVersions(chunkId: string): Promise<{ versions: any[] }> {
+    const response = await this.api.get(`/chunks/${chunkId}/versions`)
+    return response.data
+  }
+
+  async getChunkVersion(chunkId: string, version: number): Promise<any> {
+    const response = await this.api.get(`/chunks/${chunkId}`, { params: { version } })
+    return response.data
+  }
+  
+  async restoreChunkVersion(chunkId: string, version: number): Promise<any> {
+    // Get the version we want to restore
+    const oldVersion = await this.getChunkVersion(chunkId, version)
+    
+    // Update the chunk with this version's content (automatically creates a new version)
+    return await this.updateChunk(chunkId, oldVersion)
   }
 
   async getChunkContext(bookId: string, chunkId: string): Promise<any> {
