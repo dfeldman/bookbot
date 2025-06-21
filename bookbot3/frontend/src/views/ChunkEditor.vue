@@ -17,8 +17,19 @@
         <ChunkContentEditor v-model="chunkData" />
       </div>
       <aside class="sidebar">
-        <ContextPanel :chunkId="chunkId" />
-        <GenerateChunkPanel :chunkId="chunkId" />
+        <SceneContextPanel 
+            v-if="chunkData?.type === 'scene' && sceneContext"
+            :context="sceneContext"
+            :loading="isContextLoading"
+            :error="contextError"
+            @refresh="bookStore.fetchSceneContext(chunkId)"
+          />
+        <GenerateChunkPanel 
+          v-if="currentBook"
+          :chunkId="chunkId" 
+          :bookId="currentBook.book_id"
+          :chunkType="chunkData?.type"
+        />
       </aside>
     </main>
 
@@ -49,9 +60,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useBookStore } from '../stores/book';
+import { useBookStore } from '@/stores/book'
+import { storeToRefs } from 'pinia';
 import { apiService } from '../services/api';
-import type { Chunk } from '@/stores/book';
+import type { Chunk } from '@/stores/types';
 
 // Import new sub-components
 import ChunkEditorHeader from '@/components/chunk-editor/ChunkEditorHeader.vue';
@@ -60,14 +72,15 @@ import ChunkContentEditor from '@/components/chunk-editor/ChunkContentEditor.vue
 import DeleteConfirmationModal from '@/components/modals/DeleteConfirmationModal.vue';
 
 // Import existing components
-import ContextPanel from '@/components/ContextPanel.vue';
+import SceneContextPanel from '@/components/SceneContextPanel.vue';
 import GenerateChunkPanel from '@/components/GenerateChunkPanel.vue';
 import VersionHistoryModal from '@/components/VersionHistoryModal.vue';
 import StartJobModal from '@/components/StartJobModal.vue';
 
 const route = useRoute();
 const router = useRouter();
-const bookStore = useBookStore();
+const bookStore = useBookStore()
+const { sceneContext, isContextLoading, contextError, currentBook } = storeToRefs(bookStore);
 
 const chunkId = route.params.chunkId as string;
 const chunkData = ref<Chunk | null>(null);
@@ -87,8 +100,22 @@ const isBotTask = computed(() => chunkData.value?.type === 'bot_task');
 
 // Load initial chunk data
 onMounted(async () => {
+  if (chunkId) {
+    loadChunkData(chunkId)
+    bookStore.fetchSceneContext(chunkId)
+  }
+})
+
+watch(() => chunkId, (newId) => {
+  if (newId) {
+    loadChunkData(newId)
+    bookStore.fetchSceneContext(newId)
+  }
+})
+
+async function loadChunkData(id: string) {
   try {
-    const data = await bookStore.loadChunk(chunkId);
+    const data = await bookStore.loadChunk(id);
     // Deep clone and set defaults to ensure all reactive properties exist
     chunkData.value = JSON.parse(JSON.stringify(data));
   } catch (error) {
@@ -96,7 +123,7 @@ onMounted(async () => {
   } finally {
     isLoading.value = false;
   }
-});
+}
 
 // Autosave functionality
 watch(chunkData, (newVal, oldVal) => {
@@ -140,7 +167,7 @@ async function saveChunk() {
 async function deleteChunk() {
   if (!chunkData.value) return;
   try {
-    await apiService.deleteChunk(chunkData.value.chunk_id);
+    await bookStore.deleteChunk(chunkData.value.chunk_id);
     router.push(`/books/${chunkData.value.book_id}`);
   } catch (error) {
     console.error('Failed to delete chunk:', error);

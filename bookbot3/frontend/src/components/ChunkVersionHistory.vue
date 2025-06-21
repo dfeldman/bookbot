@@ -1,12 +1,12 @@
 <template>
   <div class="version-history">
-    <div v-if="isLoading" class="loading">
+    <div v-if="isVersionsLoading && versions.length === 0" class="loading">
       <div class="spinner"></div>
       <p>Loading version history...</p>
     </div>
     
-    <div v-else-if="error" class="error">
-      <p>{{ error }}</p>
+    <div v-else-if="versionsError" class="error">
+      <p>{{ versionsError }}</p>
       <button @click="loadVersions" class="retry-button">Retry</button>
     </div>
     
@@ -57,9 +57,12 @@
         </div>
       </div>
       
-      <div v-if="selectedVersion && previewContent" class="version-preview">
+      <div v-if="selectedVersion" class="version-preview">
         <h4>Preview of Version {{ selectedVersion }}</h4>
-        <div class="preview-content">
+        <div v-if="isPreviewLoading" class="loading-preview">
+          <div class="spinner"></div>
+        </div>
+        <div v-else class="preview-content">
           <MarkdownEditor 
             :modelValue="previewContent" 
             :readonly="true" 
@@ -74,8 +77,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, defineProps } from 'vue'
-import { apiService } from '../services/api'
+import { ref, watch, defineProps } from 'vue'
+import { useBookStore } from '@/stores/book'
+import { storeToRefs } from 'pinia'
+import { apiService } from '../services/api' // For preview
 import MarkdownEditor from './MarkdownEditor.vue'
 
 const props = defineProps<{
@@ -89,71 +94,57 @@ const emit = defineEmits<{
   (e: 'restored', chunkId: string): void
 }>()
 
-// State
-const versions = ref<any[]>([])
-const isLoading = ref(false)
-const error = ref('')
+const bookStore = useBookStore()
+const { versions, isVersionsLoading, versionsError } = storeToRefs(bookStore)
+
+// Local state for UI
 const selectedVersion = ref<number | null>(null)
 const previewContent = ref('')
+const isPreviewLoading = ref(false)
 const isRestoring = ref(false)
 
-// Load version history
-const loadVersions = async () => {
-  isLoading.value = true
-  error.value = ''
-  
-  try {
-    const response = await apiService.getChunkVersions(props.chunkId)
-    versions.value = response.versions
-  } catch (err: any) {
-    error.value = err.message || 'Failed to load version history'
-  } finally {
-    isLoading.value = false
-  }
+const loadVersions = () => {
+  bookStore.fetchVersions(props.chunkId)
 }
 
-// View a specific version
 const viewVersion = async (version: number) => {
   if (selectedVersion.value === version) {
-    // Toggle off if clicking the same version
     selectedVersion.value = null
     previewContent.value = ''
     return
   }
   
   selectedVersion.value = version
-  isLoading.value = true
-  error.value = ''
+  isPreviewLoading.value = true
   
   try {
     const versionData = await apiService.getChunkVersion(props.chunkId, version)
     previewContent.value = versionData.text || ''
   } catch (err: any) {
-    error.value = err.message || 'Failed to load version'
+    console.error('Failed to load version preview:', err)
     selectedVersion.value = null
   } finally {
-    isLoading.value = false
+    isPreviewLoading.value = false
   }
 }
 
-// Restore a specific version
 const restoreVersion = async (version: number) => {
-  if (confirm(`Are you sure you want to restore version ${version}? This will create a new version based on this content.`)) {
+  if (confirm(`Are you sure you want to restore to version ${version}? This will create a new version.`)) {
     isRestoring.value = true
     selectedVersion.value = version
     
     try {
-      await apiService.restoreChunkVersion(props.chunkId, version)
+      await bookStore.restoreChunkVersion(props.chunkId, version)
       emit('restored', props.chunkId)
     } catch (err: any) {
-      error.value = err.message || 'Failed to restore version'
+      // Error is handled in the store, but you might want to show a notification here
+      console.error('Failed to restore version:', err)
     } finally {
       isRestoring.value = false
     }
   }
 }
 
-// Format date
 const formatDate = (dateString: string) => {
   const date = new Date(dateString)
   return new Intl.DateTimeFormat('en-US', {
@@ -165,7 +156,11 @@ const formatDate = (dateString: string) => {
   }).format(date)
 }
 
-onMounted(loadVersions)
+watch(() => props.chunkId, (newChunkId) => {
+  if (newChunkId) {
+    loadVersions()
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -375,6 +370,13 @@ onMounted(loadVersions)
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   overflow: hidden;
+}
+
+.loading-preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
 }
 
 .retry-button {

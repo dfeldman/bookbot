@@ -97,20 +97,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { marked } from 'marked'
+import type { ContextData } from '@/stores/book'
 
 // Configure marked for inline rendering
 marked.setOptions({
   breaks: true,
   gfm: true
 })
-
-interface ContextData {
-  outline_section: string
-  characters_sections: string[]
-  settings_sections: string[]
-  tags: string[]
-  available: boolean
-}
 
 interface Props {
   context: ContextData

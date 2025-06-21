@@ -38,14 +38,14 @@
         >
           <option value="">Select a bot...</option>
           <option 
-            v-for="bot in availableBots" 
+            v-for="bot in bots" 
             :key="bot.chunk_id" 
             :value="bot.chunk_id"
           >
             {{ bot.props.name }} ({{ bot.props.llm_alias }})
           </option>
         </select>
-        <div v-if="availableBots.length === 0" class="no-bots-message">
+        <div v-if="bots.length === 0" class="no-bots-message">
           No bots configured. <router-link to="/bots">Create bots</router-link> to get started.
         </div>
       </div>
@@ -99,7 +99,7 @@
         </button>
         
         <button 
-          v-if="isGenerating"
+          v-if="currentGeneratingJob"
           @click="cancelGeneration"
           class="btn btn-secondary"
         >
@@ -112,8 +112,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { apiService } from '../services/api'
-import { useJobStore } from '../stores/jobStore'
+import { useBookStore } from '../stores/book'
+import { storeToRefs } from 'pinia'
+import { type Job } from '@/stores/types'
 
 // Props
 interface Props {
@@ -123,137 +124,60 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-
-// Emits
-const jobStore = useJobStore()
-
-// Emits
-const emit = defineEmits<{
-  generationStarted: [jobId: string]
-  generationCompleted: [chunkId: string]
-  generationCancelled: [chunkId: string]
-  error: [message: string]
-}>()
+const bookStore = useBookStore()
+const { bots, isGenerating, jobs } = storeToRefs(bookStore)
 
 // State
 const selectedMode = ref('')
 const selectedBot = ref('')
-const isGenerating = ref(false)
-const availableBots = ref<any[]>([])
 const options = ref({
-  preserveFormatting: true,
+  preserveFormatting: false,
   trackChanges: false
 })
 
 // Computed
 const canGenerate = computed(() => {
-  return selectedMode.value && 
-         selectedBot.value && 
+  return selectedMode.value &&
+         selectedBot.value &&
          !isGenerating.value &&
          (props.chunkType === 'scene' || !props.chunkType) // Only allow for scene chunks
 })
 
-// Methods
-async function loadBots() {
-  try {
-    const response = await apiService.getChunks(props.bookId, { type: 'bot' })
-    availableBots.value = response.chunks || []
-  } catch (error) {
-    console.error('Failed to load bots:', error)
-    emit('error', 'Failed to load available bots')
-  }
-}
+const currentGeneratingJob = computed(() => {
+  return jobs.value.find((job: Job) => 
+    job.props?.input_chunk_id === props.chunkId &&
+    (job.state === 'running' || job.state === 'waiting')
+  )
+})
 
+// Methods
 async function generateText() {
   if (!canGenerate.value) return
-
-  try {
-    isGenerating.value = true
-    
-    // Create a generation job
-    const jobData = {
-      job_type: 'generate_text',
-      props: {
-        chunk_id: props.chunkId,
-        mode: selectedMode.value,
-        bot_id: selectedBot.value,
-        options: options.value
-      }
-    }
-    
-    const response = await apiService.createJob(props.bookId, jobData)
-    jobStore.triggerStartingIndicator() // Show immediate feedback
-    emit('generationStarted', response.job_id)
-    
-    // Poll for completion
-    pollForCompletion(response.job_id)
-    
-  } catch (error) {
-    console.error('Failed to start generation:', error)
-    isGenerating.value = false
-    emit('error', 'Failed to start text generation')
-  }
+  
+  bookStore.startSceneGeneration(
+    props.chunkId,
+    selectedBot.value,
+    selectedMode.value,
+    options.value
+  )
 }
 
 async function cancelGeneration() {
-  try {
-    // Find the current generation job for this chunk
-    const jobs = await apiService.getJobs(props.bookId, { 
-      state: 'running',
-      job_type: 'generate_text'
-    })
-    
-    const generationJob = jobs.jobs.find(job => 
-      job.props?.chunk_id === props.chunkId
-    )
-    
-    if (generationJob) {
-      await apiService.cancelJob(generationJob.job_id)
-    }
-    
-    isGenerating.value = false
-    emit('generationCancelled', props.chunkId)
-  } catch (error) {
-    console.error('Failed to cancel generation:', error)
-    emit('error', 'Failed to cancel generation')
-  }
-}
-
-async function pollForCompletion(jobId: string) {
-  const checkInterval = setInterval(async () => {
-    try {
-      const job = await apiService.getJob(jobId)
-      
-      if (job.state === 'complete') {
-        clearInterval(checkInterval)
-        isGenerating.value = false
-        emit('generationCompleted', props.chunkId)
-      } else if (job.state === 'error' || job.state === 'cancelled') {
-        clearInterval(checkInterval)
-        isGenerating.value = false
-        emit('error', 'Generation failed or was cancelled')
-      }
-      
-    } catch (error) {
-      console.error('Failed to poll job status:', error)
-      clearInterval(checkInterval)
-      isGenerating.value = false
-      emit('error', 'Lost connection to generation job')
-    }
-  }, 2000)
+  if (!currentGeneratingJob.value) return
+  bookStore.cancelGeneration(currentGeneratingJob.value.job_id)
 }
 
 // Watchers
-watch(() => props.bookId, () => {
-  if (props.bookId) {
-    loadBots()
+watch(() => props.bookId, (newBookId) => {
+  if (newBookId) {
+    bookStore.loadBots(newBookId)
   }
-})
+}, { immediate: true })
 
 // Lifecycle
 onMounted(() => {
   if (props.bookId) {
-    loadBots()
+    bookStore.loadBots(props.bookId)
   }
 })
 </script>
