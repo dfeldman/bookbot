@@ -189,9 +189,18 @@ export const useBookStore = defineStore('book', () => {
   }
 
   function updateChunkInStore(updatedChunk: Chunk) {
+    // Update in the flat list of chunks for the book view
     const index = chunks.value.findIndex(c => c.chunk_id === updatedChunk.chunk_id)
     if (index !== -1) {
-      chunks.value[index] = updatedChunk
+      chunks.value.splice(index, 1, updatedChunk)
+    }
+
+    // Also update within the nested chunks array of the currentBook object
+    if (currentBook.value && currentBook.value.chunks) {
+      const bookChunkIndex = currentBook.value.chunks.findIndex(c => c.chunk_id === updatedChunk.chunk_id)
+      if (bookChunkIndex !== -1) {
+        currentBook.value.chunks.splice(bookChunkIndex, 1, updatedChunk)
+      }
     }
   }
 

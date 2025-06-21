@@ -42,10 +42,11 @@
       @close="showDeleteModal = false"
       @confirm="deleteChunk"
     />
-    <VersionHistoryModal
+    <ChunkVersionHistory
       v-if="showVersionHistory"
       :chunkId="chunkId"
       @close="showVersionHistory = false"
+      @restored="loadChunkData"
     />
     <StartJobModal 
       v-if="showStartJobModal && chunkData"
@@ -74,7 +75,7 @@ import DeleteConfirmationModal from '@/components/modals/DeleteConfirmationModal
 // Import existing components
 import SceneContextPanel from '@/components/SceneContextPanel.vue';
 import GenerateChunkPanel from '@/components/GenerateChunkPanel.vue';
-import VersionHistoryModal from '@/components/VersionHistoryModal.vue';
+import ChunkVersionHistory from '@/components/ChunkVersionHistory.vue';
 import StartJobModal from '@/components/StartJobModal.vue';
 
 const route = useRoute();

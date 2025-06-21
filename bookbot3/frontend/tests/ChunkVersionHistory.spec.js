@@ -104,14 +104,14 @@ describe('ChunkVersionHistory.vue', () => {
 
   it('handles loading error', async () => {
     // Mock API error
-    apiService.getChunkVersions.mockRejectedValue(new Error('Failed to load versions'))
+    apiService.getChunkVersions.mockRejectedValue(new Error('API Error'))
     
     const wrapper = createWrapper()
     await flushPromises() // Wait for API promises to resolve
     
     // Check that error is displayed
     expect(wrapper.find('.error').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Failed to load versions')
+    expect(wrapper.text()).toContain('Failed to load version history.')
     
     // Test retry functionality
     apiService.getChunkVersions.mockResolvedValue({ versions: [] })

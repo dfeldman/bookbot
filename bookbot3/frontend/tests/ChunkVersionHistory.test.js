@@ -192,7 +192,7 @@ describe('ChunkVersionHistory.vue', () => {
     
     // Error should be displayed
     expect(wrapper.find('.error').exists()).toBe(true)
-    expect(wrapper.find('.error p').text()).toBe('API Error')
+    expect(wrapper.find('.error p').text()).toBe('Failed to load version history.')
     
     // Should show retry button
     const retryButton = wrapper.find('.retry-button')
