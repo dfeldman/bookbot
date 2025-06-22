@@ -81,7 +81,7 @@ import { ref, watch, defineProps } from 'vue'
 import { useBookStore } from '@/stores/book'
 import { storeToRefs } from 'pinia'
 import { apiService } from '../services/api' // For preview
-import MarkdownEditor from './MarkdownEditor.vue'
+import MarkdownEditor from './SceneEditor.vue'
 
 const props = defineProps<{
   chunkId: string

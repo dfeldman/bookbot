@@ -9,7 +9,7 @@ import threading
 import time
 import traceback
 import json # Added json import
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, Any, Optional, Callable
 from abc import ABC, abstractmethod
 
@@ -21,13 +21,15 @@ from backend.llm import LLMCall, get_api_token_status
 class JobProcessor:
     """Main job processor that runs in a background thread."""
 
-    def __init__(self, poll_interval: float = 1.0):
+    def __init__(self, db_session=None, poll_interval: float = 1.0):
         """
         Initialize the job processor.
         
         Args:
+            db_session: Optional database session to use for job processing.
             poll_interval: How often to check for new jobs (seconds)
         """
+        self.session = db_session or db.session
         self.poll_interval = poll_interval
         self.running = False
         self.thread: Optional[threading.Thread] = None
@@ -86,7 +88,7 @@ class JobProcessor:
         # Querying outside the loop means if a job fails and rolls back,
         # subsequent operations in the same app_context might be affected if not handled perfectly.
         # However, each _process_job is now designed to be more self-contained.
-        waiting_jobs_query = Job.query.filter(Job.state.in_(['waiting', 'running_retry'])) # Added running_retry for potential future use
+        waiting_jobs_query = self.session.query(Job).filter(Job.state.in_(['waiting', 'running_retry']))
         waiting_jobs_query = waiting_jobs_query.order_by(Job.created_at)
         # Fetch all jobs upfront. If the list is huge, consider processing in batches.
         waiting_jobs = waiting_jobs_query.all()
@@ -112,7 +114,7 @@ class JobProcessor:
                     job_to_fail_critically = db.session.get(Job, current_job_id)
                     if job_to_fail_critically and job_to_fail_critically.state not in ['complete', 'error', 'cancelled']:
                         job_to_fail_critically.state = 'error'
-                        job_to_fail_critically.completed_at = datetime.utcnow()
+                        job_to_fail_critically.completed_at = datetime.now(UTC)
                         # Commit error state before logging
                         db.session.commit()
                         
@@ -140,7 +142,7 @@ class JobProcessor:
             # Ensure job is part of the current session and set to running
             job = db.session.merge(job)
             job.state = 'running'
-            job.started_at = datetime.utcnow()
+            job.started_at = datetime.now(UTC)
             db.session.commit()  # Commit 'running' state and started_at time
 
             # Create and execute the job instance
@@ -180,7 +182,7 @@ class JobProcessor:
 
                 # Set completion time for any terminal state
                 if job_to_finalize.state in ['completed', 'failed', 'error']:
-                    job_to_finalize.completed_at = datetime.utcnow()
+                    job_to_finalize.completed_at = datetime.now(UTC)
 
                 # Commit all final changes: state, error_message, completed_at, and any queued JobLogs
                 db.session.commit()
@@ -192,8 +194,7 @@ class JobProcessor:
             except Exception as final_e:
                 print(f"CRITICAL: Exception in 'finally' block for job {original_job_id}: {final_e}")
                 db.session.rollback()
-                db.session.commit() # Commit changes from unlocking
-                print(f"Job {final_job_instance.job_id} - Resources unlocked and committed.")
+                print(f"Job {original_job_id} - Rolled back session due to exception in 'finally' block.")
             except Exception as unlock_e:
                 print(f"Job {final_job_instance.job_id} - CRITICAL: Error during resource unlock: {unlock_e}. Trace: {traceback.format_exc()}")
                 db.session.rollback() # Rollback unlock attempt if it fails
@@ -210,18 +211,21 @@ class JobProcessor:
 
     def _unlock_job_resources(self, job: Job):
         """Unlock any resources locked by this job."""
-        # Unlock book if it's a book job
-        if job.job_type in ['book_job', 'export_job', 'create_foundation']:  # Add more book job types as needed
+        # Unlock book if it was locked by this job
+        if job.book_id:
             book = db.session.get(Book, job.book_id)
             if book and book.job == job.job_id:
-                book.is_locked = False
                 book.job = None
-        
-        # Unlock chunks if it's a chunk job
-        chunks = db.session.query(Chunk).filter_by(job=job.job_id).all()
-        for chunk in chunks:
-            chunk.is_locked = False
-            chunk.job = None
+                book.is_locked = False
+                print(f"Job {job.job_id} - Book {book.book_id} unlocked.")
+
+        # Unlock any chunks that were locked by this job
+        chunks_to_unlock = db.session.query(Chunk).filter_by(locked_by_job_id=job.job_id).all()
+        if chunks_to_unlock:
+            for chunk in chunks_to_unlock:
+                chunk.locked_by_job_id = None
+                chunk.is_locked = False
+            print(f"Job {job.job_id} - Unlocked {len(chunks_to_unlock)} chunks.")
 
     def create_job_instance(self, job):
         """Create a job instance from a Job model."""
@@ -252,7 +256,7 @@ class BaseJob(ABC):
             level: The log level (INFO, WARNING, ERROR)
         """
         # Enhanced console logging with timestamp, level, and book_id for better debugging
-        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         book_id = getattr(self.job, 'book_id', 'unknown')
         
         # Format based on log level for visual distinction
@@ -290,7 +294,7 @@ class BaseJob(ABC):
         """Mark the job as cancelled."""
         self._cancelled = True
         self.job.state = 'cancelled'
-        self.job.completed_at = datetime.utcnow()
+        self.job.completed_at = datetime.now(UTC)
         db.session.commit()
     
     @abstractmethod
@@ -306,38 +310,55 @@ class BaseJob(ABC):
 
 class ChunkJob(BaseJob):
     """Base class for jobs that operate on a specific chunk."""
-    
+
     def __init__(self, job: Job):
         super().__init__(job)
         chunk_id = self.job.props.get('chunk_id')
         if not chunk_id:
             raise ValueError("ChunkJob requires chunk_id in props")
+
+        # Fetch the specific chunk version if provided, otherwise the latest
+        version = self.job.props.get('version')
+        query = db.session.query(Chunk).filter_by(chunk_id=chunk_id, is_deleted=False)
+        if version is not None:
+            query = query.filter_by(version=version)
+        else:
+            query = query.filter_by(is_latest=True)
         
-        self.chunk = db.session.query(Chunk).filter_by(
-            chunk_id=chunk_id,
-            is_latest=True,
-            is_deleted=False
-        ).first()
-        
+        self.chunk = query.first()
+
         if not self.chunk:
-            raise ValueError(f"Chunk not found: {chunk_id}")
-        
+            raise ValueError(f"Chunk not found: {chunk_id} (Version: {version or 'latest'})")
+
+        # Check if the book or chunk is already locked
+        if self.chunk.book.job and self.chunk.book.job != self.job.job_id:
+            raise ValueError(f"Book {self.chunk.book.book_id} is locked by another job: {self.chunk.book.job}")
+        if self.chunk.locked_by_job_id and self.chunk.locked_by_job_id != self.job.job_id:
+            raise ValueError(f"Chunk {chunk_id} is locked by another job: {self.chunk.locked_by_job_id}")
+
         # Lock the chunk
+        self.chunk.locked_by_job_id = self.job.job_id
         self.chunk.is_locked = True
-        self.chunk.job = self.job.job_id
-        db.session.commit()
+        # No commit here; the job processor will commit the 'running' state and this lock together.
 
 
 class BookJob(BaseJob):
     """Base class for jobs that operate on an entire book."""
-    
+
     def __init__(self, job: Job):
         super().__init__(job)
-        
+        self.book = db.session.get(Book, self.job.book_id)
+        if not self.book:
+            raise ValueError(f"Book not found: {self.job.book_id}")
+
+        # Check if book is already locked by another job
+        if self.book.job and self.book.job != self.job.job_id:
+            raise ValueError(f"Book {self.job.book_id} is locked by another job: {self.book.job}")
+
         # Lock the book
-        self.book.is_locked = True
         self.book.job = self.job.job_id
-        db.session.commit()
+        self.book.is_locked = True
+        # No commit here; the job processor will commit the 'running' state and this lock together.
 
 
 class ExportJob(BaseJob):
@@ -412,6 +433,15 @@ class DemoJob(BaseJob):
         return True
 
 
+class FailingJob(BookJob):
+    """A job that is designed to always fail, for testing purposes."""
+    allowed_lm_group = "thinker"
+
+    def execute(self) -> bool:
+        """This job always fails by raising an exception."""
+        raise ValueError("This job is designed to fail for testing.")
+
+
 class CreateFoundationJob(BookJob):
     """Job that creates the foundation for a book (outline, characters, settings, etc.)."""
     allowed_lm_group = "thinker"
@@ -431,16 +461,17 @@ class CreateFoundationJob(BookJob):
 # Global job processor instance
 _job_processor = None
 
-def get_job_processor():
-    """Get the global job processor instance."""
+def get_job_processor(db_session=None):
+    """Get the global job processor instance, creating it if necessary."""
     global _job_processor
     if _job_processor is None:
-        _job_processor = JobProcessor()
+        _job_processor = JobProcessor(db_session=db_session)
         # Register job types
         from backend.jobs.generate_chunk import GenerateChunkJob
         _job_processor.register('GenerateChunk', GenerateChunkJob)
         _job_processor.register('demo', DemoJob)
         _job_processor.register('create_foundation', CreateFoundationJob)
+        _job_processor.register('failing_job', FailingJob)
     return _job_processor
 
 def start_job_processor(app):
@@ -495,7 +526,7 @@ def cancel_job(job_id: str) -> bool:
     
     if job.state in ['waiting', 'running']:
         job.state = 'cancelled'
-        job.completed_at = datetime.utcnow()
+        job.completed_at = datetime.now(UTC)
         db.session.commit()
         return True
     

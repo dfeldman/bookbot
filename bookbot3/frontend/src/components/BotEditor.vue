@@ -1,15 +1,6 @@
 <template>
   <div class="bot-editor">
-    <!-- Header: Bot Name -->
-    <div class="editor-header">
-      <input
-        id="bot-name"
-        class="bot-name-input"
-        :value="editableProps.name"
-        @input="updateProp('name', ($event.target as HTMLInputElement).value)"
-        placeholder="Enter Bot Name"
-      />
-    </div>
+
 
     <div class="editor-main">
       <!-- Left side: System Prompt -->
@@ -17,8 +8,7 @@
         <label for="system-prompt">System Prompt (Bot's Instructions)</label>
         <MarkdownEditor
           id="system-prompt"
-          :modelValue="editableContent"
-          @update:modelValue="updateContent"
+          v-model="content"
           :show-toolbar="true"
           :show-word-count="true"
           placeholder="Define the bot's personality, role, and instructions here..."
@@ -39,8 +29,7 @@
             <p class="form-description">Assigns the bot to a category for easier management and LLM selection.</p>
             <select 
               id="llm-group" 
-              :value="editableProps.llm_group"
-              @change="updateProp('llm_group', ($event.target as HTMLSelectElement).value)"
+              v-model="llm_group"
             >
               <option value="Writer">Writer</option>
               <option value="Editor">Editor</option>
@@ -56,8 +45,7 @@
             <p class="form-description">Controls creativity. Higher values (e.g., 0.8) are more creative, lower values (e.g., 0.2) are more deterministic.</p>
             <input
               id="temperature"
-              :value="editableProps.temperature"
-              @input="updateProp('temperature', parseFloat(($event.target as HTMLInputElement).value))"
+              v-model.number="temperature"
               type="number"
               step="0.1"
               min="0"
@@ -71,50 +59,60 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, toRefs } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { PropType } from 'vue'
-import MarkdownEditor from './MarkdownEditor.vue'
-import type { Chunk } from '../stores/book'
+import MarkdownEditor from './SceneEditor.vue';
+import type { Chunk } from '../stores/types'
 
 const props = defineProps({
   modelValue: {
     type: Object as PropType<Chunk>,
     required: true
+  },
+  isSaving: {
+    type: Boolean,
+    default: false
+  },
+  saveStatus: {
+    type: String,
+    default: ''
   }
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'save'])
 
-const { modelValue } = toRefs(props)
+// Local state to hold the chunk data.
+// This is necessary to handle the asynchronous loading from the parent.
+const localModel = ref<Chunk>({ ...props.modelValue });
 
-// Create local reactive copies for editing
-const editableContent = ref(modelValue.value.text || '')
-const editableProps = ref({ ...modelValue.value.props })
+watch(() => props.modelValue, (newVal) => {
+  localModel.value = { ...newVal };
+}, { deep: true });
 
-// Watch for incoming changes to the modelValue prop
-watch(modelValue, (newVal) => {
-  editableContent.value = newVal.text || ''
-  editableProps.value = { ...newVal.props }
-}, { deep: true, immediate: true }) // Use immediate to set initial state
 
-const updateProp = (key: string, value: any) => {
-  editableProps.value[key] = value
-  emitUpdate()
-}
-
-const updateContent = (newContent: string) => {
-  editableContent.value = newContent
-  emitUpdate()
-}
-
-const emitUpdate = () => {
-  const updatedChunk: Chunk = {
-    ...modelValue.value,
-    text: editableContent.value,
-    props: editableProps.value
+// Writable computed properties to sync with parent
+const content = computed({
+  get: () => localModel.value.text || '',
+  set: (value) => {
+    emit('update:modelValue', { ...localModel.value, text: value });
   }
-  emit('update:modelValue', updatedChunk)
-}
+});
+
+const llm_group = computed({
+  get: () => localModel.value.props?.llm_group || 'Writer',
+  set: (value) => {
+    const newProps = { ...localModel.value.props, llm_group: value };
+    emit('update:modelValue', { ...localModel.value, props: newProps });
+  }
+});
+
+const temperature = computed({
+  get: () => localModel.value.props?.temperature || 0.7,
+  set: (value) => {
+    const newProps = { ...localModel.value.props, temperature: value };
+    emit('update:modelValue', { ...localModel.value, props: newProps });
+  }
+});
 </script>
 
 <style scoped>
@@ -128,32 +126,9 @@ const emitUpdate = () => {
   overflow: hidden;
 }
 
-.editor-header {
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
-  background-color: #f8fafc;
-}
 
-.bot-name-input {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1e293b;
-  border: none;
-  background: transparent;
-  width: 100%;
-  padding: 0.5rem;
-  border-radius: 0.375rem;
-  transition: background-color 0.2s;
-}
 
-.bot-name-input:focus {
-  outline: none;
-  background-color: #f1f5f9;
-}
 
-.bot-name-input::placeholder {
-  color: #94a3b8;
-}
 
 .editor-main {
   display: flex;

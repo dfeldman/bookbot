@@ -70,3 +70,51 @@ def test_resolve_template_variables_malformed_placeholders():
     values = {"name": "Test"}
     expected = "Malformed: {{ name }, { name }}, {{name"
     assert resolve_template_variables(template, values) == expected
+
+
+def test_resolve_template_variables_conditional_with_value():
+    """Test conditional placeholder with a value."""
+    template = "Context: {{ prefix | data }}"
+    values = {"data": "Here is the data."}
+    expected = "Context: prefix Here is the data."
+    assert resolve_template_variables(template, values) == expected
+
+
+def test_resolve_template_variables_conditional_with_empty_value():
+    """Test conditional placeholder with an empty value."""
+    template = "Context: {{ prefix | data }}"
+    values = {"data": ""}
+    expected = "Context: "
+    assert resolve_template_variables(template, values) == expected
+
+
+def test_resolve_template_variables_conditional_with_missing_variable():
+    """Test conditional placeholder with a missing variable."""
+    template = "Context: {{ prefix | data }}"
+    values = {}
+    expected = "Context: "
+    assert resolve_template_variables(template, values) == expected
+
+
+def test_resolve_template_variables_mixed_standard_and_conditional():
+    """Test a mix of standard and conditional placeholders."""
+    template = "Hello, {{ name }}. {{ Note | note }}"
+    values = {"name": "User", "note": "This is important."}
+    expected = "Hello, User. Note This is important."
+    assert resolve_template_variables(template, values) == expected
+
+
+def test_resolve_template_variables_mixed_with_missing_conditional():
+    """Test a mix with a missing conditional variable."""
+    template = "Hello, {{ name }}.{{ Note | note }}"
+    values = {"name": "User"}
+    expected = "Hello, User."
+    assert resolve_template_variables(template, values) == expected
+
+
+def test_resolve_template_variables_multiline_value():
+    """Test conditional placeholder with multiline value."""
+    template = "Outline:\n{{ | outline }}"
+    values = {"outline": "- Chapter 1\n- Chapter 2"}
+    expected = "Outline:\n- Chapter 1\n- Chapter 2"
+    assert resolve_template_variables(template, values) == expected

@@ -166,6 +166,7 @@ def create_app(config_class=Config) -> Flask:
             db.session.add(default_user)
             db.session.commit()
             print("Created default user")
+
     
     return app
 

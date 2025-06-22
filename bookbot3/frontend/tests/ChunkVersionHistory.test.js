@@ -1,7 +1,7 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ChunkVersionHistory from '../src/components/ChunkVersionHistory.vue'
-import MarkdownEditor from '../src/components/MarkdownEditor.vue'
+import MarkdownEditor from '../src/components/SceneEditor.vue'
 import { apiService } from '../src/services/api'
 
 // Mock the API service

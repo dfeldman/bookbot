@@ -1,0 +1,920 @@
+{
+    "users": [
+        {
+            "user_id": "default-user-123",
+            "props": {
+                "name": "Default User",
+                "email": "user@example.com"
+            },
+            "created_at": "2025-06-22T05:55:49.275063",
+            "updated_at": "2025-06-22T05:55:49.275068"
+        }
+    ],
+    "books": [
+        {
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "user_id": "default-user-123",
+            "props": {
+                "name": "test5",
+                "description": "test",
+                "style": "sci-fi",
+                "genre": "General",
+                "created_via": "wizard"
+            },
+            "is_locked": false,
+            "job": null,
+            "created_at": "2025-06-22T05:56:00.514205",
+            "updated_at": "2025-06-22T05:56:07.925193"
+        }
+    ],
+    "chunks": [
+        {
+            "id": 1,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "971647a8-1312-40ed-8e5e-5f3ab2fc4aaa",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {},
+            "type": "brief",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 0.1,
+            "chapter": null,
+            "word_count": 1,
+            "created_at": "2025-06-22T05:56:00.942293",
+            "updated_at": "2025-06-22T05:56:00.942295",
+            "text": "test"
+        },
+        {
+            "id": 2,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "2a232a94-b1aa-4e16-b92c-b3594640f591",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {},
+            "type": "style",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 0.2,
+            "chapter": null,
+            "word_count": 1,
+            "created_at": "2025-06-22T05:56:00.944065",
+            "updated_at": "2025-06-22T05:56:00.944067",
+            "text": "sci-fi"
+        },
+        {
+            "id": 3,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "eccd0708-1a54-49c3-aa32-91cefc704870",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "scene_count": 18
+            },
+            "type": "outline",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 1.0,
+            "chapter": null,
+            "word_count": 523,
+            "created_at": "2025-06-22T05:56:03.716710",
+            "updated_at": "2025-06-22T05:56:03.716712",
+            "text": "## Chapter 1: The Beginning\n\n### Scene: Hero introduced in ordinary world [[Scene 1]]\nIn this scene, the story develops as hero introduced in ordinary world. The characters face new challenges and the plot advances significantly.\n\n### Scene: Inciting incident occurs [[Scene 2]]\nIn this scene, the story develops as inciting incident occurs. The characters face new challenges and the plot advances significantly.\n\n### Scene: Hero refuses the call [[Scene 3]]\nIn this scene, the story develops as hero refuses the call. The characters face new challenges and the plot advances significantly.\n\n## Chapter 2: The Journey Starts\n\n### Scene: Hero accepts the call [[Scene 4]]\nIn this scene, the story develops as hero accepts the call. The characters face new challenges and the plot advances significantly.\n\n### Scene: Mentor appears [[Scene 5]]\nIn this scene, the story develops as mentor appears. The characters face new challenges and the plot advances significantly.\n\n### Scene: First threshold crossed [[Scene 6]]\nIn this scene, the story develops as first threshold crossed. The characters face new challenges and the plot advances significantly.\n\n## Chapter 3: Trials and Challenges\n\n### Scene: Hero faces initial challenges [[Scene 7]]\nIn this scene, the story develops as hero faces initial challenges. The characters face new challenges and the plot advances significantly.\n\n### Scene: New allies and enemies [[Scene 8]]\nIn this scene, the story develops as new allies and enemies. The characters face new challenges and the plot advances significantly.\n\n### Scene: Skills are tested [[Scene 9]]\nIn this scene, the story develops as skills are tested. The characters face new challenges and the plot advances significantly.\n\n## Chapter 4: The Ordeal\n\n### Scene: Major crisis point [[Scene 10]]\nIn this scene, the story develops as major crisis point. The characters face new challenges and the plot advances significantly.\n\n### Scene: Hero faces greatest fear [[Scene 11]]\nIn this scene, the story develops as hero faces greatest fear. The characters face new challenges and the plot advances significantly.\n\n### Scene: Apparent failure [[Scene 12]]\nIn this scene, the story develops as apparent failure. The characters face new challenges and the plot advances significantly.\n\n## Chapter 5: Transformation\n\n### Scene: Hero gains new insight [[Scene 13]]\nIn this scene, the story develops as hero gains new insight. The characters face new challenges and the plot advances significantly.\n\n### Scene: Final preparation [[Scene 14]]\nIn this scene, the story develops as final preparation. The characters face new challenges and the plot advances significantly.\n\n### Scene: Resolution begins [[Scene 15]]\nIn this scene, the story develops as resolution begins. The characters face new challenges and the plot advances significantly.\n\n## Chapter 6: Return Home\n\n### Scene: Hero returns changed [[Scene 16]]\nIn this scene, the story develops as hero returns changed. The characters face new challenges and the plot advances significantly.\n\n### Scene: New world order [[Scene 17]]\nIn this scene, the story develops as new world order. The characters face new challenges and the plot advances significantly.\n\n### Scene: Wisdom shared [[Scene 18]]\nIn this scene, the story develops as wisdom shared. The characters face new challenges and the plot advances significantly.\n"
+        },
+        {
+            "id": 4,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "8f92351d-35ef-4181-826b-051d27ddbc64",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {},
+            "type": "characters",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 2.0,
+            "chapter": 0,
+            "word_count": 167,
+            "created_at": "2025-06-22T05:56:05.438710",
+            "updated_at": "2025-06-22T05:56:05.438713",
+            "text": "## New Tokyo - Major City\n\nA sprawling metropolis where tradition meets cutting-edge technology\n\n**Physical Description:** Lorem ipsum dolor sit amet, consectetur adipiscing elit. Detailed visual description with sensory details.\n\n**Atmosphere:** The mood and feeling of this location, how it affects characters emotionally.\n\n**Significance:** Why this location is important to the story and character development.\n\n## The Underground Labs - Secret Facility\n\nHidden research complex beneath the city streets\n\n**Physical Description:** Lorem ipsum dolor sit amet, consectetur adipiscing elit. Detailed visual description with sensory details.\n\n**Atmosphere:** The mood and feeling of this location, how it affects characters emotionally.\n\n**Significance:** Why this location is important to the story and character development.\n\n## Chen Family Apartment - Personal Space\n\nA modest apartment filled with memories and hidden clues\n\n**Physical Description:** Lorem ipsum dolor sit amet, consectetur adipiscing elit. Detailed visual description with sensory details.\n\n**Atmosphere:** The mood and feeling of this location, how it affects characters emotionally.\n\n**Significance:** Why this location is important to the story and character development.\n"
+        },
+        {
+            "id": 5,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "f5dc694a-1174-4226-aced-f7c23561c7f2",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {},
+            "type": "settings",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 3.0,
+            "chapter": 0,
+            "word_count": 167,
+            "created_at": "2025-06-22T05:56:07.909845",
+            "updated_at": "2025-06-22T05:56:07.909847",
+            "text": "## New Tokyo - Major City\n\nA sprawling metropolis where tradition meets cutting-edge technology\n\n**Physical Description:** Lorem ipsum dolor sit amet, consectetur adipiscing elit. Detailed visual description with sensory details.\n\n**Atmosphere:** The mood and feeling of this location, how it affects characters emotionally.\n\n**Significance:** Why this location is important to the story and character development.\n\n## The Underground Labs - Secret Facility\n\nHidden research complex beneath the city streets\n\n**Physical Description:** Lorem ipsum dolor sit amet, consectetur adipiscing elit. Detailed visual description with sensory details.\n\n**Atmosphere:** The mood and feeling of this location, how it affects characters emotionally.\n\n**Significance:** Why this location is important to the story and character development.\n\n## Chen Family Apartment - Personal Space\n\nA modest apartment filled with memories and hidden clues\n\n**Physical Description:** Lorem ipsum dolor sit amet, consectetur adipiscing elit. Detailed visual description with sensory details.\n\n**Atmosphere:** The mood and feeling of this location, how it affects characters emotionally.\n\n**Significance:** Why this location is important to the story and character development.\n"
+        },
+        {
+            "id": 6,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "b3f12db0-56c3-435f-a916-632b050e372d",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 1,
+                "scene_title": "Hero introduced in ordinary world"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 4.0,
+            "chapter": 1,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.910791",
+            "updated_at": "2025-06-22T05:56:07.910792",
+            "text": ""
+        },
+        {
+            "id": 7,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "829a0864-1dac-45b7-a229-0b6aad19bcee",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 2,
+                "scene_title": "Inciting incident occurs"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 5.0,
+            "chapter": 1,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.911280",
+            "updated_at": "2025-06-22T05:56:07.911280",
+            "text": ""
+        },
+        {
+            "id": 8,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "cf652abe-4996-4ead-8360-b86c843e4a7f",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 3,
+                "scene_title": "Hero refuses the call"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 6.0,
+            "chapter": 1,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.911691",
+            "updated_at": "2025-06-22T05:56:07.911691",
+            "text": ""
+        },
+        {
+            "id": 9,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "aac7d98a-a330-49bc-b059-aee2bdc1140f",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 4,
+                "scene_title": "Hero accepts the call"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 7.0,
+            "chapter": 2,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.912073",
+            "updated_at": "2025-06-22T05:56:07.912073",
+            "text": ""
+        },
+        {
+            "id": 10,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "a623f6c0-1b0a-470a-894c-0ae22a4a29f0",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 5,
+                "scene_title": "Mentor appears"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 8.0,
+            "chapter": 2,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.912444",
+            "updated_at": "2025-06-22T05:56:07.912445",
+            "text": ""
+        },
+        {
+            "id": 11,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "366f74e4-1e71-4bc7-888d-6092196aca23",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 6,
+                "scene_title": "First threshold crossed"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 9.0,
+            "chapter": 2,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.912814",
+            "updated_at": "2025-06-22T05:56:07.912815",
+            "text": ""
+        },
+        {
+            "id": 12,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "0451e5e0-b59c-4d41-9815-79623d27b365",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 7,
+                "scene_title": "Hero faces initial challenges"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 10.0,
+            "chapter": 3,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.913185",
+            "updated_at": "2025-06-22T05:56:07.913186",
+            "text": ""
+        },
+        {
+            "id": 13,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "811d2090-7595-4eb9-b97c-be611f0d195e",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 8,
+                "scene_title": "New allies and enemies"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 11.0,
+            "chapter": 3,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.913559",
+            "updated_at": "2025-06-22T05:56:07.913559",
+            "text": ""
+        },
+        {
+            "id": 14,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "f272a151-913e-45a2-a15e-cd8ced3c1386",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 9,
+                "scene_title": "Skills are tested"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 12.0,
+            "chapter": 3,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.913923",
+            "updated_at": "2025-06-22T05:56:07.913924",
+            "text": ""
+        },
+        {
+            "id": 15,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "fee59bae-0224-46c4-b2ed-ebd3ce88132a",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 10,
+                "scene_title": "Major crisis point"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 13.0,
+            "chapter": 4,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.914285",
+            "updated_at": "2025-06-22T05:56:07.914286",
+            "text": ""
+        },
+        {
+            "id": 16,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "a13d5757-8889-459a-8588-113e512a1c58",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 11,
+                "scene_title": "Hero faces greatest fear"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 14.0,
+            "chapter": 4,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.914645",
+            "updated_at": "2025-06-22T05:56:07.914645",
+            "text": ""
+        },
+        {
+            "id": 17,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "48b8e6b4-3e1f-44fd-bd8e-7bd9d3897f34",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 12,
+                "scene_title": "Apparent failure"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 15.0,
+            "chapter": 4,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.914976",
+            "updated_at": "2025-06-22T05:56:07.914976",
+            "text": ""
+        },
+        {
+            "id": 18,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "4ef290ae-46af-47a5-b56c-ff565cecdf43",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 13,
+                "scene_title": "Hero gains new insight"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 16.0,
+            "chapter": 5,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.915316",
+            "updated_at": "2025-06-22T05:56:07.915316",
+            "text": ""
+        },
+        {
+            "id": 19,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "b4c2cace-2a13-4369-a842-90d29cd48cce",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 14,
+                "scene_title": "Final preparation"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 17.0,
+            "chapter": 5,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.915650",
+            "updated_at": "2025-06-22T05:56:07.915650",
+            "text": ""
+        },
+        {
+            "id": 20,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "3bc43334-ed06-426a-a275-ecec59f79276",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 15,
+                "scene_title": "Resolution begins"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 18.0,
+            "chapter": 5,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.915980",
+            "updated_at": "2025-06-22T05:56:07.915981",
+            "text": ""
+        },
+        {
+            "id": 21,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "10dd1700-4243-4fba-9a08-03042c7a3320",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 16,
+                "scene_title": "Hero returns changed"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 19.0,
+            "chapter": 6,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.916311",
+            "updated_at": "2025-06-22T05:56:07.916312",
+            "text": ""
+        },
+        {
+            "id": 22,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "b4a10c6a-afa6-4deb-bb2f-56990f5a5f4e",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 17,
+                "scene_title": "New world order"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 20.0,
+            "chapter": 6,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.916644",
+            "updated_at": "2025-06-22T05:56:07.916644",
+            "text": ""
+        },
+        {
+            "id": 23,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "f057694b-da60-4b88-a31b-ce8144a72bc2",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "outline_section_id": 18,
+                "scene_title": "Wisdom shared"
+            },
+            "type": "scene",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 21.0,
+            "chapter": 6,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:07.916976",
+            "updated_at": "2025-06-22T05:56:07.916976",
+            "text": ""
+        },
+        {
+            "id": 24,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "05ccc6fb-fd51-4c34-bf9b-a5449dd9d2cd",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "name": "Writer Bot",
+                "description": "A versatile writing assistant for general content creation",
+                "temperature": 0.7
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 0.0,
+            "chapter": null,
+            "word_count": 34,
+            "created_at": "2025-06-22T05:56:07.919410",
+            "updated_at": "2025-06-22T05:56:07.919411",
+            "text": "You are a helpful AI writing assistant. Write engaging, well-structured content that captures the reader's attention. \nFocus on clear prose, good pacing, and compelling storytelling. Maintain consistency in voice and style throughout \nthe narrative.\n"
+        },
+        {
+            "id": 25,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "184dbc73-785b-45c8-a0fb-0181850b8a82",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "name": "Creative Bot",
+                "description": "A creative writing bot for imaginative and artistic content",
+                "temperature": 0.9
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 1.0,
+            "chapter": null,
+            "word_count": 36,
+            "created_at": "2025-06-22T05:56:07.919811",
+            "updated_at": "2025-06-22T05:56:07.919811",
+            "text": "You are a creative writing AI specializing in imaginative, artistic prose. Use vivid imagery, unique metaphors, \nand creative language. Take creative risks while maintaining readability. Focus on emotional depth and \natmospheric descriptions that immerse the reader.\n"
+        },
+        {
+            "id": 26,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "f6ce4c80-1781-4bd8-be72-8b0dd389d2ae",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "name": "Precise Bot",
+                "description": "A precise writing bot for technical and factual content",
+                "temperature": 0.3
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 2.0,
+            "chapter": null,
+            "word_count": 32,
+            "created_at": "2025-06-22T05:56:07.920172",
+            "updated_at": "2025-06-22T05:56:07.920173",
+            "text": "You are a precise writing AI focused on clarity, accuracy, and structure. Write clear, concise content with \nlogical flow. Prioritize factual accuracy and coherent organization. Use straightforward language and avoid \nunnecessary embellishments.\n"
+        },
+        {
+            "id": 27,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "dddf3aef-a864-461e-8c28-325a497ab09f",
+            "version": 1,
+            "is_latest": false,
+            "locked_by_job_id": null,
+            "props": {
+                "name": "Dialogue Bot",
+                "description": "Specialized in writing natural, engaging dialogue",
+                "temperature": 0.8
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 3.0,
+            "chapter": null,
+            "word_count": 39,
+            "created_at": "2025-06-22T05:56:07.920527",
+            "updated_at": "2025-06-22T05:56:26.365192",
+            "text": "You are a dialogue specialist AI. Write natural, character-appropriate dialogue that reveals personality, \nadvances plot, and feels authentic. Focus on subtext, voice distinction, and realistic speech patterns. \nEach character should have a unique voice reflecting their background and personality.\n"
+        },
+        {
+            "id": 28,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "0635b7ef-d569-49db-aaf0-9f888e32837e",
+            "version": 1,
+            "is_latest": false,
+            "locked_by_job_id": null,
+            "props": {
+                "name": "Action Bot",
+                "description": "Focused on dynamic action sequences and scenes",
+                "temperature": 0.7
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 4.0,
+            "chapter": null,
+            "word_count": 40,
+            "created_at": "2025-06-22T05:56:07.920896",
+            "updated_at": "2025-06-22T05:57:12.709907",
+            "text": "You are an action writing specialist. Create dynamic, engaging action sequences with clear choreography and \npacing. Focus on tension, momentum, and visceral descriptions. Balance detailed action with character reactions \nand emotional stakes. Keep readers on the edge of their seats.\n"
+        },
+        {
+            "id": 29,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "bb9bd723-9384-4927-ba63-7726f736f83a",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "name": "Draft Scene",
+                "llm_group": "writer",
+                "applicable_jobs": [
+                    "generate_chunk"
+                ]
+            },
+            "type": "bot_task",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 0.0,
+            "chapter": null,
+            "word_count": 55,
+            "created_at": "2025-06-22T05:56:07.922587",
+            "updated_at": "2025-06-22T05:56:07.922588",
+            "text": "You are a helpful AI writing assistant. Your task is to write a scene based on the following context.\n\n{{ Brief }}\n{{ OutlineSection }}\n{{ CharactersSections }}\n{{ SettingsSections }}\n{{ Style }}\n\n{{ PreviousChunk | Previous chunk: }}\n\nWrite the next scene, keeping the story moving and staying consistent with the provided context.\n"
+        },
+        {
+            "id": 30,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "f3c638af-53c9-4bc3-815d-f2f08b3e2867",
+            "version": 1,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "name": "Review and Edit Scene",
+                "llm_group": "editor",
+                "applicable_jobs": [
+                    "review_chunk"
+                ]
+            },
+            "type": "bot_task",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 1.0,
+            "chapter": null,
+            "word_count": 29,
+            "created_at": "2025-06-22T05:56:07.923149",
+            "updated_at": "2025-06-22T05:56:07.923150",
+            "text": "You are an AI editor. Review the following scene for clarity, consistency, and style. Provide feedback and suggestions for improvement.\n\n{{ CurrentVersion }}\n\n{{ Review | Reviewer's notes: }}\n"
+        },
+        {
+            "id": 31,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "dddf3aef-a864-461e-8c28-325a497ab09f",
+            "version": 2,
+            "is_latest": false,
+            "locked_by_job_id": null,
+            "props": {
+                "description": "Specialized in writing natural, engaging dialogue",
+                "name": "Dialogue Bot",
+                "temperature": 0.8
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 3.0,
+            "chapter": null,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:26.366370",
+            "updated_at": "2025-06-22T05:56:27.842138",
+            "text": ""
+        },
+        {
+            "id": 32,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "dddf3aef-a864-461e-8c28-325a497ab09f",
+            "version": 3,
+            "is_latest": false,
+            "locked_by_job_id": null,
+            "props": {
+                "description": "Specialized in writing natural, engaging dialogue",
+                "name": "Dialogue Bot",
+                "temperature": 0.8
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 3.0,
+            "chapter": null,
+            "word_count": 1,
+            "created_at": "2025-06-22T05:56:27.843023",
+            "updated_at": "2025-06-22T05:56:30.833773",
+            "text": "asdfasdf"
+        },
+        {
+            "id": 33,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "dddf3aef-a864-461e-8c28-325a497ab09f",
+            "version": 4,
+            "is_latest": false,
+            "locked_by_job_id": null,
+            "props": {
+                "description": "Specialized in writing natural, engaging dialogue",
+                "name": "Dialogue Bot",
+                "temperature": 0.8
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 3.0,
+            "chapter": null,
+            "word_count": 2,
+            "created_at": "2025-06-22T05:56:30.834805",
+            "updated_at": "2025-06-22T05:56:33.941251",
+            "text": "asdfasdf\n\nasdfasdf"
+        },
+        {
+            "id": 34,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "dddf3aef-a864-461e-8c28-325a497ab09f",
+            "version": 5,
+            "is_latest": false,
+            "locked_by_job_id": null,
+            "props": {
+                "description": "Specialized in writing natural, engaging dialogue",
+                "name": "Dialogue Bot",
+                "temperature": 0.8
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 3.0,
+            "chapter": null,
+            "word_count": 2,
+            "created_at": "2025-06-22T05:56:33.942156",
+            "updated_at": "2025-06-22T05:56:37.624378",
+            "text": "asdfasdf\n\nasdfasdf"
+        },
+        {
+            "id": 35,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "dddf3aef-a864-461e-8c28-325a497ab09f",
+            "version": 6,
+            "is_latest": false,
+            "locked_by_job_id": null,
+            "props": {
+                "description": "Specialized in writing natural, engaging dialogue",
+                "name": "Dialogue Bot",
+                "temperature": 0.8
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 3.0,
+            "chapter": null,
+            "word_count": 3,
+            "created_at": "2025-06-22T05:56:37.624595",
+            "updated_at": "2025-06-22T05:56:57.600113",
+            "text": "asdfasdf\n\nasdfasdf\n\nadsfdf"
+        },
+        {
+            "id": 36,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "dddf3aef-a864-461e-8c28-325a497ab09f",
+            "version": 7,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "description": "Specialized in writing natural, engaging dialogue",
+                "name": "Dialogue Bot",
+                "temperature": 0.8
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 3.0,
+            "chapter": null,
+            "word_count": 0,
+            "created_at": "2025-06-22T05:56:57.600697",
+            "updated_at": "2025-06-22T05:56:57.600700",
+            "text": ""
+        },
+        {
+            "id": 37,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "0635b7ef-d569-49db-aaf0-9f888e32837e",
+            "version": 2,
+            "is_latest": false,
+            "locked_by_job_id": null,
+            "props": {
+                "description": "Focused on dynamic action sequences and scenes",
+                "name": "Action Bot",
+                "temperature": 0.7
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 4.0,
+            "chapter": null,
+            "word_count": 2,
+            "created_at": "2025-06-22T05:57:12.710450",
+            "updated_at": "2025-06-22T05:58:14.833659",
+            "text": "asdfasdf \n\nadsfasdf"
+        },
+        {
+            "id": 38,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "0635b7ef-d569-49db-aaf0-9f888e32837e",
+            "version": 3,
+            "is_latest": false,
+            "locked_by_job_id": null,
+            "props": {
+                "description": "Focused on dynamic action sequences and scenes",
+                "name": "Action Bot",
+                "temperature": 0.7
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 4.0,
+            "chapter": null,
+            "word_count": 2,
+            "created_at": "2025-06-22T05:58:14.834614",
+            "updated_at": "2025-06-22T05:58:17.419861",
+            "text": "asdfasdf \n\nadsfasdf"
+        },
+        {
+            "id": 39,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "0635b7ef-d569-49db-aaf0-9f888e32837e",
+            "version": 4,
+            "is_latest": false,
+            "locked_by_job_id": null,
+            "props": {
+                "description": "Focused on dynamic action sequences and scenes",
+                "name": "Action Bot",
+                "temperature": 0.7
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 4.0,
+            "chapter": null,
+            "word_count": 2,
+            "created_at": "2025-06-22T05:58:17.420545",
+            "updated_at": "2025-06-22T05:58:20.166797",
+            "text": "asdfasdf \n\nadsfasdf"
+        },
+        {
+            "id": 40,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "0635b7ef-d569-49db-aaf0-9f888e32837e",
+            "version": 5,
+            "is_latest": false,
+            "locked_by_job_id": null,
+            "props": {
+                "description": "Focused on dynamic action sequences and scenes",
+                "name": "Action Bot",
+                "temperature": 0.7
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 4.0,
+            "chapter": null,
+            "word_count": 3,
+            "created_at": "2025-06-22T05:58:20.167562",
+            "updated_at": "2025-06-22T05:58:21.296468",
+            "text": "asdfasdf \n\nadsfasdf\n\nhelloworld"
+        },
+        {
+            "id": 41,
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": "0635b7ef-d569-49db-aaf0-9f888e32837e",
+            "version": 6,
+            "is_latest": true,
+            "locked_by_job_id": null,
+            "props": {
+                "description": "Focused on dynamic action sequences and scenes",
+                "name": "Action Bot",
+                "temperature": 0.7
+            },
+            "type": "bot",
+            "is_locked": false,
+            "is_deleted": false,
+            "order": 4.0,
+            "chapter": null,
+            "word_count": 3,
+            "created_at": "2025-06-22T05:58:21.297140",
+            "updated_at": "2025-06-22T05:58:21.297145",
+            "text": "asdfasdf \n\nadsfasdf\n\nhelloworld"
+        }
+    ],
+    "jobs": [
+        {
+            "job_id": "8d9e4f3e-b7a8-4dfe-8013-fb285b605fdf",
+            "book_id": "725e3dc3-f9fd-4b5f-992a-e410e685ff0d",
+            "chunk_id": null,
+            "job_type": "create_foundation",
+            "props": {
+                "brief": "test",
+                "style": "sci-fi"
+            },
+            "state": "completed",
+            "total_cost": 0.0,
+            "created_at": "2025-06-22T05:56:00.545757",
+            "started_at": "2025-06-22T05:56:00.909509",
+            "completed_at": "2025-06-22T05:56:07.923482",
+            "error_message": null
+        }
+    ]
+}

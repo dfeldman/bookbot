@@ -1,18 +1,7 @@
 import axios, { AxiosInstance } from 'axios'
+import type { LLMInfo, Book, Chunk, Job } from '../stores/types'
 
-export interface LLMInfo {
-  id: string;
-  name: string;
-  description: string;
-  company: string;
-  router: string;
-  context_length: number;
-  input_cost_per_mtok: number;
-  output_cost_per_mtok: number;
-  seconds_per_output_mtok: number;
-  groups: string[];
-  quality_score: number;
-}
+
 
 class ApiService {
   private api: AxiosInstance
@@ -53,22 +42,22 @@ class ApiService {
   }
 
   // Book endpoints
-  async getBooks(): Promise<{ books: any[] }> {
+  async getBooks(): Promise<{ books: Book[] }> {
     const response = await this.api.get('/books')
     return response.data
   }
 
-  async getBook(bookId: string): Promise<any> {
+  async getBook(bookId: string): Promise<Book> {
     const response = await this.api.get(`/books/${bookId}`)
     return response.data
   }
 
-  async createBook(data: { props: any }): Promise<any> {
+  async createBook(data: Partial<Book>): Promise<Book> {
     const response = await this.api.post('/books', data)
     return response.data
   }
 
-  async updateBook(bookId: string, data: { props: any }): Promise<any> {
+  async updateBook(bookId: string, data: Partial<Book>): Promise<Book> {
     const response = await this.api.put(`/books/${bookId}`, data)
     return response.data
   }
@@ -104,22 +93,22 @@ class ApiService {
   }
 
   // Chunk endpoints
-  async getChunks(bookId: string, params?: any): Promise<{ chunks: any[] }> {
+  async getChunks(bookId: string, params?: any): Promise<{ chunks: Chunk[] }> {
     const response = await this.api.get(`/books/${bookId}/chunks`, { params })
     return response.data
   }
 
-  async getChunk(chunkId: string): Promise<any> {
-    const response = await this.api.get(`/chunks/${chunkId}`)
+  async getChunk(chunkId: string): Promise<Chunk> {
+    const response = await this.api.get(`/chunks/${chunkId}`, { params: { include_text: true } })
     return response.data
   }
 
-  async createChunk(bookId: string, data: any): Promise<any> {
+  async createChunk(bookId: string, data: Partial<Chunk>): Promise<Chunk> {
     const response = await this.api.post(`/books/${bookId}/chunks`, data)
     return response.data
   }
 
-  async updateChunk(chunkId: string, data: any): Promise<any> {
+  async updateChunk(chunkId: string, data: Partial<Chunk>): Promise<Chunk> {
     const response = await this.api.put(`/chunks/${chunkId}`, data)
     return response.data
   }
@@ -129,17 +118,17 @@ class ApiService {
   }
 
   // Chunk version endpoints
-  async getChunkVersions(chunkId: string): Promise<{ versions: any[] }> {
+  async getChunkVersions(chunkId: string): Promise<{ versions: Chunk[] }> {
     const response = await this.api.get(`/chunks/${chunkId}/versions`)
     return response.data
   }
 
-  async getChunkVersion(chunkId: string, version: number): Promise<any> {
+  async getChunkVersion(chunkId: string, version: number): Promise<Chunk> {
     const response = await this.api.get(`/chunks/${chunkId}`, { params: { version } })
     return response.data
   }
   
-  async restoreChunkVersion(chunkId: string, version: number): Promise<any> {
+  async restoreChunkVersion(chunkId: string, version: number): Promise<Chunk> {
     // Get the version we want to restore
     const oldVersion = await this.getChunkVersion(chunkId, version)
     
@@ -153,12 +142,12 @@ class ApiService {
   }
 
   // Job endpoints
-  async getJobs(bookId: string, params?: any): Promise<{ jobs: any[] }> {
+  async getJobs(bookId: string, params?: any): Promise<{ jobs: Job[] }> {
     const response = await this.api.get(`/books/${bookId}/jobs`, { params })
     return response.data
   }
 
-  async getJob(jobId: string): Promise<any> {
+  async getJob(jobId: string): Promise<Job> {
     const response = await this.api.get(`/jobs/${jobId}`)
     return response.data
   }
@@ -168,7 +157,7 @@ class ApiService {
     return response.data
   }
 
-  async createJob(bookId: string, data: any): Promise<any> {
+  async createJob(bookId: string, data: any): Promise<Job> {
     const response = await this.api.post(`/books/${bookId}/jobs`, data)
     return response.data
   }
@@ -177,12 +166,12 @@ class ApiService {
     await this.api.delete(`/jobs/${jobId}`)
   }
 
-  async getRunningJobs(): Promise<{ jobs: any[] }> {
+  async getRunningJobs(): Promise<{ jobs: Job[] }> {
     const response = await this.api.get('/jobs/running');
     return response.data;
   }
 
-  async getAllJobs(params?: any): Promise<{ jobs: any[] }> {
+  async getAllJobs(params?: any): Promise<{ jobs: Job[] }> {
     const response = await this.api.get('/jobs', { params });
     return response.data;
   }

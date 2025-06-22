@@ -1,7 +1,7 @@
 <template>
   <div class="chunk-editor-header">
     <div class="left-actions">
-      <router-link :to="`/book/${bookId}`" class="back-link">
+            <router-link :to="`/books/${bookId}`" class="back-link">
         &larr; Back to Book
       </router-link>
       <span class="save-status">{{ saveStatus }}</span>
@@ -15,8 +15,8 @@
       >
         Start Job
       </button>
-      <button @click="$emit('save')" :disabled="isSaving" class="action-button save-button">
-        {{ isSaving ? 'Saving...' : 'Save' }}
+      <button v-if="showSaveButton" @click="$emit('save')" :disabled="isSaving" class="action-button save-button">
+        {{ isSaving ? 'Saving...' : 'Save Version' }}
       </button>
       <button @click="$emit('delete')" class="action-button delete-button">Delete</button>
     </div>
@@ -29,6 +29,7 @@ defineProps<{
   saveStatus: string;
   isSaving: boolean;
   isBotTask: boolean;
+  showSaveButton: boolean;
 }>();
 
 defineEmits(['save', 'delete', 'show-versions', 'start-job']);

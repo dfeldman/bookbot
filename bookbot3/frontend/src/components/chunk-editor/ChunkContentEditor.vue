@@ -1,8 +1,22 @@
 <template>
   <div class="chunk-content-editor">
-    <MarkdownEditor v-if="modelValue.type === 'markdown'" :modelValue="text" @update:modelValue="updateText" />
-    <BotEditor v-else-if="modelValue.type === 'bot'" :modelValue="modelValue" @update:modelValue="emit('update:modelValue', $event)" />
-    <BotTaskEditor v-else-if="modelValue.type === 'bot_task'" :modelValue="modelValue" @update:modelValue="emit('update:modelValue', $event)" />
+    <MarkdownEditor v-if="isMarkdownChunk" :modelValue="text" @update:modelValue="updateText" />
+    <BotEditor
+      v-else-if="modelValue.type === 'bot'"
+      :modelValue="modelValue"
+      :is-saving="isSaving"
+      :save-status="saveStatus"
+      @update:modelValue="emit('update:modelValue', $event)"
+      @save="emit('save')"
+    />
+    <BotTaskEditor
+      v-else-if="modelValue.type === 'bot_task'"
+      :modelValue="modelValue"
+      :is-saving="isSaving"
+      :save-status="saveStatus"
+      @update:modelValue="emit('update:modelValue', $event)"
+      @save="emit('save')"
+    />
     <div v-else class="unsupported-type">
       Unsupported chunk type: {{ modelValue.type }}
     </div>
@@ -11,16 +25,23 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { Chunk } from '@/stores/book';
-import MarkdownEditor from '@/components/MarkdownEditor.vue';
+import type { Chunk } from '@/stores/types';
+import MarkdownEditor from '@/components/SceneEditor.vue';
 import BotEditor from '@/components/BotEditor.vue';
 import BotTaskEditor from '@/components/BotTaskEditor.vue';
 
 const props = defineProps<{
   modelValue: Chunk;
+  isSaving: boolean;
+  saveStatus: string;
 }>();
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'save']);
+
+const isMarkdownChunk = computed(() => {
+  const markdownTypes = ['scene', 'brief', 'outline', 'settings', 'characters'];
+  return markdownTypes.includes(props.modelValue.type);
+});
 
 const text = computed(() => props.modelValue.text || '');
 

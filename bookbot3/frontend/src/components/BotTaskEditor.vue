@@ -4,11 +4,11 @@
     <div class="editor-header">
       <input
         id="bot-task-name"
+        v-model="name"
         class="bot-name-input"
-        :value="editableProps.name"
-        @input="updateProp('name', ($event.target as HTMLInputElement).value)"
         placeholder="Enter Task Name"
       />
+
     </div>
 
     <div class="editor-main">
@@ -17,8 +17,7 @@
         <label for="task-content">Main Prompt Template</label>
         <MarkdownEditor
           id="task-content"
-          :modelValue="editableContent"
-          @update:modelValue="updateContent"
+          v-model="content"
           :show-toolbar="true"
           :show-word-count="true"
           placeholder="Enter the main prompt template. Use placeholders like {{PreviousChunk}}..."
@@ -39,8 +38,7 @@
             <p class="form-description">Assigns the task to a category for easier management.</p>
             <select 
               id="llm-group" 
-              :value="editableProps.llm_group"
-              @change="updateProp('llm_group', ($event.target as HTMLSelectElement).value)"
+              v-model="llm_group"
             >
               <option value="Writer">Writer</option>
               <option value="Editor">Editor</option>
@@ -52,14 +50,12 @@
 
           <!-- Jobs -->
           <div class="form-group">
-            <label for="jobs">Applicable Jobs</label>
+            <label for="applicable-jobs">Applicable Jobs</label>
             <p class="form-description">Comma-separated list of job types this task can be used for (e.g., GenerateChunk, EditChunk).</p>
             <input
-              id="jobs"
-              type="text"
-              :value="editableProps.jobs"
-              @input="updateProp('jobs', ($event.target as HTMLInputElement).value)"
-              placeholder="GenerateChunk, EditChunk"
+              id="applicable-jobs"
+              v-model="applicable_jobs"
+              placeholder="e.g., generate_text, create_foundation"
             />
           </div>
         </div>
@@ -69,50 +65,67 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, toRefs } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { PropType } from 'vue'
-import MarkdownEditor from './MarkdownEditor.vue'
-import type { Chunk } from '../stores/book'
+import MarkdownEditor from './SceneEditor.vue';
+import type { Chunk } from '../stores/types'
 
 const props = defineProps({
   modelValue: {
     type: Object as PropType<Chunk>,
     required: true
+  },
+  isSaving: {
+    type: Boolean,
+    default: false
+  },
+  saveStatus: {
+    type: String,
+    default: ''
   }
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'save'])
 
-const { modelValue } = toRefs(props)
+// Local state to hold the chunk data.
+// This is necessary to handle the asynchronous loading from the parent.
+const localModel = ref<Chunk>({ ...props.modelValue });
 
-// Create local reactive copies for editing
-const editableContent = ref(modelValue.value.text || '')
-const editableProps = ref({ ...modelValue.value.props })
+watch(() => props.modelValue, (newVal) => {
+  localModel.value = { ...newVal };
+}, { deep: true });
 
-// Watch for incoming changes to the modelValue prop
-watch(modelValue, (newVal) => {
-  editableContent.value = newVal.text || ''
-  editableProps.value = { ...newVal.props }
-}, { deep: true, immediate: true })
-
-const updateProp = (key: string, value: any) => {
-  editableProps.value[key] = value
-  emitUpdate()
-}
-
-const updateContent = (newContent: string) => {
-  editableContent.value = newContent
-  emitUpdate()
-}
-
-const emitUpdate = () => {
-  const updatedChunk: Chunk = {
-    ...modelValue.value,
-    text: editableContent.value,
-    props: editableProps.value
+// Writable computed properties to sync with parent
+const name = computed({
+  get: () => localModel.value.props?.name || '',
+  set: (value) => {
+    const newProps = { ...localModel.value.props, name: value };
+    emit('update:modelValue', { ...localModel.value, props: newProps });
   }
-  emit('update:modelValue', updatedChunk)
-}
+});
+
+const content = computed({
+  get: () => localModel.value.text || '',
+  set: (value) => {
+    emit('update:modelValue', { ...localModel.value, text: value });
+  }
+});
+
+const llm_group = computed({
+  get: () => localModel.value.props?.llm_group || 'Writer',
+  set: (value) => {
+    const newProps = { ...localModel.value.props, llm_group: value };
+    emit('update:modelValue', { ...localModel.value, props: newProps });
+  }
+});
+
+const applicable_jobs = computed({
+  get: () => (localModel.value.props?.applicable_jobs || []).join(', '),
+  set: (value) => {
+    const newProps = { ...localModel.value.props, applicable_jobs: value.split(',').map((s: string) => s.trim()) };
+    emit('update:modelValue', { ...localModel.value, props: newProps });
+  }
+});
 </script>
 
 <style scoped>
@@ -128,10 +141,15 @@ const emitUpdate = () => {
 }
 
 .editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid #e2e8f0;
   background-color: #f8fafc;
 }
+
+
 
 .bot-name-input {
   font-size: 1.5rem;

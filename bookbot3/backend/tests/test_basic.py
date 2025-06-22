@@ -9,6 +9,7 @@ import pytest
 import json
 from flask import Flask
 from backend.models import db, User, Book, Chunk, Job
+from backend.bot_manager import BotManager
 from app import create_app
 
 
@@ -166,6 +167,8 @@ class TestAPI:
         assert 'job_id' in data
 
 
+
+
 class TestModels:
     """Test database models."""
     
@@ -243,6 +246,33 @@ class TestModels:
         
         none_count = Chunk.count_words(None)
         assert none_count == 0
+
+    def test_chunk_newline_preservation(self, app):
+        """Test that newlines are preserved in Chunk.text upon creation."""
+        with app.app_context():
+            user = User.query.first()
+            book = Book(user_id=user.user_id, props={'title': 'Newline Test Book'})
+            db.session.add(book)
+            db.session.commit()
+
+            original_text = "This is line one.\nThis is line two.\n\nThis is line four."
+
+            # Create a new chunk with newlines
+            new_chunk = Chunk(
+                book_id=book.book_id,
+                type='brief',
+                text=original_text,
+                is_latest=True
+            )
+            db.session.add(new_chunk)
+            db.session.commit()
+
+            # Fetch the chunk from the database
+            fetched_chunk = db.session.get(Chunk, new_chunk.id)
+
+            # Assert that the newlines are still present
+            assert '\n' in fetched_chunk.text
+            assert original_text == fetched_chunk.text
 
 
 class TestLLM:
@@ -532,9 +562,9 @@ class TestCreateFoundationJob:
             assert len(scene_chunks) > 0
             
             for scene_chunk in scene_chunks:
-                assert 'scene_id' in scene_chunk.props
+                assert 'outline_section_id' in scene_chunk.props
                 assert 'scene_title' in scene_chunk.props
-                assert scene_chunk.props['scene_id'] is not None
+                assert scene_chunk.props['outline_section_id'] is not None
     
     def test_create_foundation_run_function(self, app):
         """Test the run_create_foundation_job function directly."""
@@ -607,37 +637,8 @@ class TestCreateFoundationJob:
 class TestBotManagerIntegration:
     """Test bot manager integration with CreateFoundation job."""
     
-    def test_scene_extraction(self, app):
-        """Test scene extraction from outline."""
-        from backend.bot_manager import get_bot_manager
-        
-        # Sample outline with scene markers (correct format)
-        outline_text = """
-## Chapter 1: The Discovery
-
-### Scene: Hero finds the artifact [[Scene 1]]
-### Scene: First contact with aliens [[Scene 2]]
-
-## Chapter 2: The Journey
-
-### Scene: Departure from Earth [[Scene 3]]
-### Scene: Space battle [[Scene 4]]
-        """
-        
-        bot_manager = get_bot_manager()
-        scenes = bot_manager.extract_scenes_from_outline(outline_text)
-        
-        assert len(scenes) == 4
-        assert scenes[0]['scene_id'] == 'Scene 1'
-        assert 'Hero finds the artifact' in scenes[0]['title']
-        assert scenes[0]['chapter'] == 1
-        
-        assert scenes[2]['scene_id'] == 'Scene 3'
-        assert 'Departure from Earth' in scenes[2]['title']
-        assert scenes[2]['chapter'] == 2
-    
     def test_scene_id_addition(self, app):
-        """Test adding scene IDs to outline."""
+        """Test that scene IDs are correctly added to an outline."""
         from backend.bot_manager import get_bot_manager
         
         outline_text = """
@@ -655,12 +656,11 @@ class TestBotManagerIntegration:
         bot_manager = get_bot_manager()
         outline_with_ids, scene_ids = bot_manager.add_scene_ids(outline_text)
         
-        assert len(scene_ids) > 0
-        assert "[[Scene" in outline_with_ids
+        assert len(scene_ids) == 4
+        assert "[[Scene 1]]" in outline_with_ids
+        assert "[[Scene 4]]" in outline_with_ids
         
-        # Should extract the scenes we just added
-        extracted_scenes = bot_manager.extract_scenes_from_outline(outline_with_ids)
-        assert len(extracted_scenes) == len(scene_ids)
+
 
 
 class TestFoundationJobHelpers:

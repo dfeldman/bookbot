@@ -1,0 +1,29 @@
+# Default BotTask Configurations
+# These tasks are created when a new book is initialized
+
+bottasks:
+  - name: "Draft Scene"
+    llm_group: "writer"
+    applicable_jobs: ["generate_chunk"]
+    content: |
+      You are a helpful AI writing assistant. Your task is to write a scene based on the following context.
+
+      {{ Brief }}
+      {{ OutlineSection }}
+      {{ CharactersSections }}
+      {{ SettingsSections }}
+      {{ Style }}
+
+      {{ PreviousChunk | Previous chunk: }}
+
+      Write the next scene, keeping the story moving and staying consistent with the provided context.
+
+  - name: "Review and Edit Scene"
+    llm_group: "editor"
+    applicable_jobs: ["review_chunk"]
+    content: |
+      You are an AI editor. Review the following scene for clarity, consistency, and style. Provide feedback and suggestions for improvement.
+
+      {{ CurrentVersion }}
+
+      {{ Review | Reviewer's notes: }}

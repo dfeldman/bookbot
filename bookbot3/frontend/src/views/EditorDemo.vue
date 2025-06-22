@@ -1,10 +1,10 @@
 <template>
   <div class="editor-demo">
-    <h1>Markdown Editor Demo</h1>
+    <h1>Scene Editor Demo</h1>
     
     <div class="demo-section">
       <h2>Basic Editor</h2>
-      <p class="description">Click to start editing. Features: markdown formatting, tag highlighting, and elegant styling.</p>
+      <p class="description">Click to start editing. Features: scene formatting, tag highlighting, and elegant styling.</p>
       <div class="editor-container">
         <MarkdownEditor
           v-model="content"
@@ -45,12 +45,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import MarkdownEditor from '../components/MarkdownEditor.vue'
+import MarkdownEditor from '../components/SceneEditor.vue'
 
-// Sample content with markdown and tags
+// Sample content with scene and tags
 const initialContent = `# Welcome to the BookBot Editor
 
-This is a **markdown** editor with *special* features.
+This is a **scene** editor with *special* features.
 
 ## Features
 - Tag highlighting with #tags like #writing and #novel
@@ -59,13 +59,13 @@ This is a **markdown** editor with *special* features.
 - Customizable fonts
 
 ### How to use
-Simply click anywhere to start editing. Use markdown syntax for formatting.
+Simply click anywhere to start editing. Use scene syntax for formatting.
 
 #bookbot #writing #productivity`
 
 const content = ref(initialContent)
 const content2 = ref('# Custom Font Example\n\nThis editor has a larger serif font that\'s perfect for writing prose.\n\n#typography #writing')
-const readonlyContent = ref('# Read-only Content\n\nThis content cannot be edited, only viewed. It still supports **markdown** formatting and #tags.')
+const readonlyContent = ref('# Read-only Content\n\nThis content cannot be edited, only viewed. It still supports **scene** formatting and #tags.')
 
 function resetEditor() {
   content.value = initialContent

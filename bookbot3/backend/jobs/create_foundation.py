@@ -22,7 +22,7 @@ from backend.llm import LLMCall
 def run_create_foundation_job(job_id: str, book_id: str, props: Dict[str, Any], log_callback) -> bool:
     """
     Run the Create Foundation job.
-    
+
     This job:
     1. Takes a 'brief' and 'style' from props
     2. Generates outline, characters, and settings using LLM
@@ -30,180 +30,191 @@ def run_create_foundation_job(job_id: str, book_id: str, props: Dict[str, Any], 
     4. Adds scene IDs to the outline
     5. Creates chunks for all content
     6. Creates empty scene chunks with scene_id props
-    
+
     Args:
         job_id: The job ID
         book_id: The book ID to process
         props: Job properties containing 'brief' and 'style'
         log_callback: Function to log progress
-        
+
     Returns:
         bool: True if successful, False if error
     """
     try:
         log_callback("Starting Create Foundation job")
-        
+        bot_manager = get_bot_manager()
+
         # Validate required props
         if 'brief' not in props or 'style' not in props:
             log_callback("ERROR: Missing required 'brief' and/or 'style' in job props")
             return False
-        
-        brief = props['brief']
-        style = props['style']
-        
-        # Ensure brief and style are not None
-        if brief is None:
-            log_callback("ERROR: 'brief' property cannot be None")
-            brief = ""  # Set to empty string to prevent errors
-        
-        if style is None:
-            log_callback("ERROR: 'style' property cannot be None")
-            style = ""  # Set to empty string to prevent errors
-        
+
+        brief = props.get('brief', "")
+        style = props.get('style', "")
+
         # Get book and user information
         book = Book.query.filter_by(book_id=book_id).first()
         if not book:
             log_callback(f"ERROR: Book {book_id} not found")
             return False
-        
-        # For now, we'll use default user props since we don't have user management
+
         user_props = {'name': 'Default User', 'email': 'user@example.com'}
         book_props = book.props or {}
-        
+
         log_callback(f"Creating foundation for book: {book_props.get('title', 'Untitled')}")
-        
+
         # Step 1: Save the brief and style as-is
         log_callback("Step 1: Saving brief and style")
-        
-        brief_chunk = _create_chunk(
-            book_id=book_id,
-            chunk_type="brief",
-            text=brief,
-            chapter=None,
-            order=0.1,
-            props={},
-            log_callback=log_callback
-        )
-        
-        style_chunk = _create_chunk(
-            book_id=book_id,
-            chunk_type="style",
-            text=style,
-            chapter=None,
-            order=0.2,
-            props={},
-            log_callback=log_callback
-        )
-        
+        _create_chunk(book_id, "brief", brief, None, 0.1, {}, log_callback)
+        _create_chunk(book_id, "style", style, None, 0.2, {}, log_callback)
+
         # Step 2: Generate outline using LLM
         log_callback("Step 2: Generating book outline")
-        outline_text = _generate_outline(book_props, user_props, brief, style, log_callback)
-        if not outline_text:
+        template_vars = {
+            'brief': brief,
+            'style': style,
+            'title': book_props.get('title', 'Untitled'),
+            'genre': book_props.get('genre', 'Fiction'),
+            'target_length': book_props.get('target_length', '80000')
+        }
+        llm_call = bot_manager.get_llm_call(
+            task_id='create_outline',
+            book_props=book_props,
+            user_props=user_props,
+            template_vars=template_vars,
+            log_callback=log_callback
+        )
+        success = llm_call.execute()
+        outline_text = llm_call.output_text
+        cost = llm_call.cost
+        if not success:
+            log_callback("ERROR: Failed to generate outline")
             return False
-        
+        log_callback(f"Outline generated: {len(outline_text)} characters, cost: ${cost:.5f}")
+
         # Step 3: Add scene IDs to outline
         log_callback("Step 3: Adding scene IDs to outline")
-        bot_manager = get_bot_manager()
-        outline_with_ids, scene_ids = bot_manager.add_scene_ids(outline_text)
-        log_callback(f"Added {len(scene_ids)} scene IDs to outline")
-        
+        outline_with_ids, scene_info = bot_manager.add_scene_ids(outline_text)
+        log_callback(f"Added {len(scene_info)} scene IDs to outline")
+
         # Step 4: Tag the outline
         log_callback("Step 4: Adding tags to outline")
-        tagged_outline = _add_tags_to_content(
-            outline_with_ids, "outline", book_props, user_props, log_callback
-        )
-        
+        template_vars = {'content': outline_with_ids, 'content_type': 'outline', 'genre': book_props.get('genre', '')}
+        llm_call = bot_manager.get_llm_call('tag_content', book_props, user_props, template_vars, log_callback=log_callback)
+        success = llm_call.execute()
+        tagged_outline = llm_call.output_text
+        cost = llm_call.cost
+        if not success:
+            log_callback("ERROR: Failed to tag outline, using untagged version")
+            tagged_outline = outline_with_ids
+        log_callback(f"Tagged outline, cost: ${cost:.5f}")
+
         # Step 5: Create outline chunk
-        outline_chunk = _create_chunk(
-            book_id=book_id,
-            chunk_type="outline",
-            text=tagged_outline,
-            chapter=0,
-            order=1.0,
-            props={'scene_count': len(scene_ids)},
-            log_callback=log_callback
-        )
-        
+        log_callback("Step 5: Creating outline chunk")
+        # DO NOT STRIP THE SCENE IDS FROM THE OUTLINE. THEY MUST REMAIN IN THE FINAL VERSION. 
+        outline_props = {'scene_count': len(scene_info)}
+        log_callback("Creating outline chunk with scene IDs removed...")
+        _create_chunk(book_id, "outline", tagged_outline, None, 1.0, outline_props, log_callback)
+
         # Step 6: Generate characters using LLM
         log_callback("Step 6: Generating character sheets")
-        characters_text = _generate_characters(book_props, user_props, brief, style, outline_text, log_callback)
-        if not characters_text:
+        template_vars = {
+            'brief': brief, 'style': style, 'outline': tagged_outline,
+            'title': book_props.get('title', ''), 'genre': book_props.get('genre', ''),
+            'target_length': book_props.get('target_length', 50000)
+        }
+        llm_call = bot_manager.get_llm_call('create_characters', book_props, user_props, template_vars, log_callback=log_callback)
+        success = llm_call.execute()
+        characters_text = llm_call.output_text
+        cost = llm_call.cost
+        if not success:
+            log_callback("ERROR: Failed to generate characters")
             return False
-        
+        log_callback(f"Generated characters, cost: ${cost:.5f}")
+
         # Step 7: Tag the characters
         log_callback("Step 7: Adding tags to characters")
-        tagged_characters = _add_tags_to_content(
-            characters_text, "characters", book_props, user_props, log_callback
-        )
-        
+        template_vars = {'content': characters_text, 'content_type': 'characters', 'genre': book_props.get('genre', '')}
+        llm_call = bot_manager.get_llm_call('tag_content', book_props, user_props, template_vars, log_callback=log_callback)
+        success = llm_call.execute()
+        tagged_characters = llm_call.output_text
+        cost = llm_call.cost
+        if not success:
+            log_callback("ERROR: Failed to tag characters, using untagged version")
+            tagged_characters = characters_text
+        log_callback(f"Tagged characters, cost: ${cost:.5f}")
+
         # Step 8: Create characters chunk
-        characters_chunk = _create_chunk(
-            book_id=book_id,
-            chunk_type="characters",
-            text=tagged_characters,
-            chapter=0,
-            order=2.0,
-            props={},
-            log_callback=log_callback
-        )
-        
+        log_callback("Step 8: Creating characters chunk")
+        _create_chunk(book_id, "characters", tagged_characters, 0, 2.0, {}, log_callback)
+
         # Step 9: Generate settings using LLM
         log_callback("Step 9: Generating settings")
-        settings_text = _generate_settings(book_props, user_props, brief, style, outline_text, log_callback)
-        if not settings_text:
+        template_vars = {
+            'brief': brief, 'style': style, 'outline': tagged_outline,
+            'title': book_props.get('title', ''), 'genre': book_props.get('genre', '')
+        }
+        llm_call = bot_manager.get_llm_call('create_settings', book_props, user_props, template_vars, log_callback=log_callback)
+        success = llm_call.execute()
+        settings_text = llm_call.output_text
+        cost = llm_call.cost
+        if not success:
+            log_callback("ERROR: Failed to generate settings")
             return False
-        
+        log_callback(f"Generated settings, cost: ${cost:.5f}")
+
         # Step 10: Tag the settings
         log_callback("Step 10: Adding tags to settings")
-        tagged_settings = _add_tags_to_content(
-            settings_text, "settings", book_props, user_props, log_callback
-        )
-        
+        template_vars = {'content': settings_text, 'content_type': 'settings', 'genre': book_props.get('genre', '')}
+        llm_call = bot_manager.get_llm_call('tag_content', book_props, user_props, template_vars, log_callback=log_callback)
+        success = llm_call.execute()
+        tagged_settings = llm_call.output_text
+        cost = llm_call.cost
+        if not success:
+            log_callback("ERROR: Failed to tag settings, using untagged version")
+            tagged_settings = settings_text
+        log_callback(f"Tagged settings, cost: ${cost:.5f}")
+
         # Step 11: Create settings chunk
-        settings_chunk = _create_chunk(
-            book_id=book_id,
-            chunk_type="settings",
-            text=tagged_settings,
-            chapter=0,
-            order=3.0,
-            props={},
-            log_callback=log_callback
-        )
-        
-        # Step 12: Create scene chunks
-        log_callback("Step 12: Creating scene chunks")
-        scene_info = bot_manager.extract_scenes_from_outline(tagged_outline)
-        log_callback(f"Extracted {len(scene_info)} scenes from outline")
-        
-        for scene in scene_info:
-            scene_chunk = _create_chunk(
+        log_callback("Step 11: Creating settings chunk")
+        _create_chunk(book_id, "settings", tagged_settings, 0, 3.0, {}, log_callback)
+
+        # Step 7: Create empty scene chunks
+        log_callback("Step 7: Creating empty scene chunks")
+        scene_order_start = 4.0
+        for i, info in enumerate(scene_info):
+            scene_props = {
+                'outline_section_id': info['outline_section_id'],
+                'scene_title': info['scene_title']
+            }
+            _create_chunk(
                 book_id=book_id,
                 chunk_type="scene",
-                text="",  # Empty text, to be filled later
-                chapter=scene['chapter'],
-                order=scene['order'],
-                props={
-                    'scene_id': scene['scene_id'],
-                    'scene_title': scene['title'],
-                    'tags': scene['tags'],
-                    'chapter_title': scene.get('chapter_title', '')
-                },
+                text="",  # Empty text for scene chunks
+                chapter=info['chapter'],
+                order=scene_order_start + i,
+                props=scene_props,
                 log_callback=log_callback
             )
-            log_callback(f"Created scene chunk: {scene['scene_id']} - {scene['title']}")
-        
-        log_callback("Create Foundation job completed successfully!")
-        log_callback(f"Created {len(scene_info)} scene chunks, plus outline, characters, settings, brief, and style")
-        
+        log_callback(f"Created {len(scene_info)} scene chunks")
+
         # Step 13: Initialize default bots
         log_callback("Step 13: Initializing default bots")
         bot_count = _initialize_default_bots(book_id, log_callback)
-        log_callback(f"Created {bot_count} default bot chunks")
-        
+        log_callback(f"Initialized {bot_count} default bots")
+
+        # Step 14: Initialize default bot tasks
+        log_callback("Step 14: Initializing default bot tasks")
+        task_count = _initialize_default_bot_tasks(book_id, log_callback)
+        log_callback(f"Initialized {task_count} default bot tasks")
+
+        log_callback("Create Foundation job completed successfully")
         return True
-        
+
     except Exception as e:
-        log_callback(f"ERROR in Create Foundation job: {str(e)}")
+        log_callback(f"ERROR in Create Foundation job: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
@@ -373,15 +384,18 @@ def _create_chunk(book_id: str, chunk_type: str, text: str, chapter: Optional[in
         chunk_id = generate_uuid()
         
         # Create chunk with explicit parameters to avoid None issues
+        # Calculate word count separately to avoid any potential side effects
+        word_count = Chunk.count_words(text)
+
         chunk = Chunk(
             book_id=book_id,
-            chunk_id=chunk_id,  # Pre-generate UUID to avoid None
+            chunk_id=chunk_id,
             text=text,
             type=chunk_type,
-            chapter=chapter,  # This is now Optional[int], so None is explicitly allowed
+            chapter=chapter,
             order=order,
             props=props,
-            word_count=Chunk.count_words(text)  # Explicitly calculate word count
+            word_count=word_count
         )
         
         db.session.add(chunk)
@@ -426,19 +440,17 @@ def _initialize_default_bots(book_id: str, log_callback) -> int:
             # Create bot chunk with all properties from YAML
             bot_props = {
                 'name': bot_config['name'],
-                'llm_alias': bot_config.get('llm_alias', 'Writer'),
                 'description': bot_config.get('description', ''),
-                'system_prompt': bot_config.get('system_prompt', ''),
                 'temperature': bot_config.get('temperature', 0.7),
                 # Include any additional properties from the YAML
                 **{k: v for k, v in bot_config.items() 
-                   if k not in ['name', 'llm_alias', 'description', 'system_prompt', 'temperature', 'order']}
+                   if k not in ['name', 'description', 'temperature', 'order', 'content']}
             }
             
             bot_chunk = _create_chunk(
                 book_id=book_id,
                 chunk_type="bot",
-                text="",  # Bots don't need text content, configuration is in props
+                text=bot_config.get('content', ''),
                 chapter=None,
                 order=float(bot_config.get('order', bot_count)),
                 props=bot_props,
@@ -446,7 +458,7 @@ def _initialize_default_bots(book_id: str, log_callback) -> int:
             )
             
             bot_count += 1
-            log_callback(f"Created bot: {bot_config['name']} (LLM: {bot_config.get('llm_alias', 'Writer')})")
+            log_callback(f"Created bot: {bot_config['name']}")
         
         # In the function _initialize_default_bots, after creating bots, the test queries:
         # Chunk.query.filter_by(book_id=...).order_by(Chunk.order).all()
@@ -464,4 +476,59 @@ def _initialize_default_bots(book_id: str, log_callback) -> int:
     
     except Exception as e:
         log_callback(f"Error initializing default bots: {str(e)}")
+        return 0
+
+
+def _initialize_default_bot_tasks(book_id: str, log_callback) -> int:
+    """Initialize default bot tasks for the book from YAML configuration."""
+    try:
+        # Load bot task configuration from YAML file
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'bottasks.yml')
+        
+        if not os.path.exists(config_path):
+            log_callback(f"Warning: Bot task config file not found at {config_path}")
+            return 0
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        if not config or 'bottasks' not in config:
+            log_callback("Warning: No bot tasks found in configuration file")
+            return 0
+        
+        task_count = 0
+        
+        for task_config in config['bottasks']:
+            # Validate required fields
+            if 'name' not in task_config:
+                log_callback("Warning: Bot task configuration missing 'name' field, skipping")
+                continue
+            
+            # Create bot task chunk with all properties from YAML
+            task_props = {
+                'name': task_config['name'],
+                'llm_group': task_config.get('llm_group'),
+                'applicable_jobs': task_config.get('applicable_jobs', []),
+                # Include any additional properties from the YAML
+                **{k: v for k, v in task_config.items() 
+                   if k not in ['name', 'content', 'order', 'llm_group', 'applicable_jobs']}
+            }
+            
+            _create_chunk(
+                book_id=book_id,
+                chunk_type="bot_task",
+                text=task_config.get('content', ''),
+                chapter=None,
+                order=float(task_config.get('order', task_count)),
+                props=task_props,
+                log_callback=log_callback
+            )
+            
+            task_count += 1
+            log_callback(f"Created bot task: {task_config['name']}")
+            
+        return task_count
+    
+    except Exception as e:
+        log_callback(f"Error initializing default bot tasks: {str(e)}")
         return 0

@@ -51,36 +51,36 @@
       <span>💡 Context is available for scenes with a Scene ID that matches an outline section.</span>
     </div>
 
-    <!-- Context Content Grid -->
-    <div v-else-if="hasContextSections && !isCollapsed" class="context-grid">
+    <!-- Context Content List -->
+    <div v-else-if="hasContextSections && !isCollapsed" class="context-list">
       <!-- Outline Section -->
       <div v-if="context.outline_section" class="context-section outline-section">
-        <h5>📋 Outline</h5>
-        <div class="content-box" v-html="renderMarkdown(context.outline_section)"></div>
+        <h5 @click="$emit('navigate', 'outline')">📋 Outline <span class="nav-arrow">→</span></h5>
+        <div class="content-box" v-html="renderScene(context.outline_section)"></div>
       </div>
 
       <!-- Characters Section -->
       <div v-if="context.characters_sections?.length" class="context-section characters-section">
-        <h5>👥 Characters ({{ context.characters_sections.length }})</h5>
+        <h5 @click="$emit('navigate', 'characters')">👥 Characters ({{ context.characters_sections.length }}) <span class="nav-arrow">→</span></h5>
         <div class="content-list">
           <div 
             v-for="(section, index) in context.characters_sections" 
             :key="index"
             class="content-box"
-            v-html="renderMarkdown(section)"
+            v-html="renderScene(section)"
           ></div>
         </div>
       </div>
 
       <!-- Settings Section -->
       <div v-if="context.settings_sections?.length" class="context-section settings-section">
-        <h5>⚙️ Settings ({{ context.settings_sections.length }})</h5>
+        <h5 @click="$emit('navigate', 'settings')">⚙️ Settings ({{ context.settings_sections.length }}) <span class="nav-arrow">→</span></h5>
         <div class="content-list">
           <div 
             v-for="(section, index) in context.settings_sections" 
             :key="index"
             class="content-box"
-            v-html="renderMarkdown(section)"
+            v-html="renderScene(section)"
           ></div>
         </div>
       </div>
@@ -91,13 +91,23 @@
       <span>📝 No matching context found for this scene.</span>
       <span class="hint">Make sure the Scene ID matches an outline section with tags.</span>
     </div>
+
+    <!-- Generation Panel -->
+    <div class="generation-panel">
+      <GenerateChunkPanel v-if="chunk.type === 'scene'" :chunk="chunk" />
+      <div v-else-if="['brief', 'outline', 'characters', 'setting', 'style'].includes(chunk.type)" class="placeholder-panel">
+        <p>Generation for '{{ chunk.type }}' chunks is coming soon.</p>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { marked } from 'marked'
-import type { ContextData } from '@/stores/book'
+import type { ContextData, Chunk } from '@/stores/types'
+import GenerateChunkPanel from './GenerateChunk.vue'
+
 
 // Configure marked for inline rendering
 marked.setOptions({
@@ -107,6 +117,7 @@ marked.setOptions({
 
 interface Props {
   context: ContextData
+  chunk: Chunk
   loading: boolean
   error: string | null
 }
@@ -116,12 +127,15 @@ const props = defineProps<Props>()
 
 defineEmits<{
   refresh: []
+  navigate: [type: 'outline' | 'characters' | 'settings']
 }>()
 
 // Local state for collapsing
 const isCollapsed = ref(false)
 
 // Computed properties
+
+
 const hasContextSections = computed(() => {
   return !!(props.context.outline_section || 
            props.context.characters_sections?.length || 
@@ -133,14 +147,14 @@ const toggleCollapsed = () => {
   isCollapsed.value = !isCollapsed.value
 }
 
-const renderMarkdown = (text: string): string => {
+const renderScene = (text: string): string => {
   if (!text) return ''
   try {
     const result = marked(text)
     // Handle both sync and async returns from marked
     return typeof result === 'string' ? result : text
   } catch (e) {
-    console.warn('Failed to render markdown:', e)
+    console.warn('Failed to render scene:', e)
     return text
   }
 }
@@ -296,27 +310,14 @@ const renderMarkdown = (text: string): string => {
   color: #94a3b8;
 }
 
-/* Context Grid Layout */
-.context-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 1rem;
+/* Context List Layout */
+.context-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
   padding: 1rem 1.25rem;
   max-height: 24rem;
   overflow-y: auto;
-}
-
-/* Responsive grid */
-@media (max-width: 1200px) {
-  .context-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .context-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Context Sections */
@@ -333,9 +334,25 @@ const renderMarkdown = (text: string): string => {
   color: #374151;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
   padding-bottom: 0.5rem;
   border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.context-section h5:hover {
+  color: #1d4ed8;
+}
+
+.nav-arrow {
+  font-size: 1.2em;
+  transition: transform 0.2s;
+}
+
+.context-section h5:hover .nav-arrow {
+  transform: translateX(5px);
 }
 
 .outline-section h5 {
@@ -376,7 +393,7 @@ const renderMarkdown = (text: string): string => {
   max-height: 8rem;
 }
 
-/* Markdown styling within content boxes */
+/* Scene styling within content boxes */
 .content-box :deep(h1),
 .content-box :deep(h2),
 .content-box :deep(h3),
@@ -448,24 +465,24 @@ const renderMarkdown = (text: string): string => {
 }
 
 /* Scrollbar styling */
-.context-grid::-webkit-scrollbar,
+.context-list::-webkit-scrollbar,
 .content-box::-webkit-scrollbar {
   width: 6px;
 }
 
-.context-grid::-webkit-scrollbar-track,
+.context-list::-webkit-scrollbar-track,
 .content-box::-webkit-scrollbar-track {
   background: #f1f5f9;
   border-radius: 3px;
 }
 
-.context-grid::-webkit-scrollbar-thumb,
+.context-list::-webkit-scrollbar-thumb,
 .content-box::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 3px;
 }
 
-.context-grid::-webkit-scrollbar-thumb:hover,
+.context-list::-webkit-scrollbar-thumb:hover,
 .content-box::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }

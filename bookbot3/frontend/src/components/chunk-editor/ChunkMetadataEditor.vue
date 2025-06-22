@@ -1,10 +1,22 @@
 <template>
   <div class="metadata-editor">
+    <div class="form-group">
+      <label for="chunk-name">Name</label>
+      <input
+        id="chunk-name"
+        type="text"
+        :value="displayName"
+        @input="updateName(($event.target as HTMLInputElement).value)"
+        :readonly="!isNameEditable"
+        class="chunk-name-input"
+        placeholder="[No name]"
+      />
+    </div>
     <div class="form-row">
       <div class="form-group">
         <label for="chunk-type">Type</label>
         <select id="chunk-type" :value="modelValue.type" @change="update('type', ($event.target as HTMLSelectElement).value)">
-          <option value="markdown">Markdown</option>
+          <option value="scene">Scene</option>
           <option value="bot">Bot</option>
           <option value="bot_task">Bot Task</option>
         </select>
@@ -18,11 +30,17 @@
         <input id="chunk-order" type="number" :value="modelValue.order" @input="update('order', parseInt(($event.target as HTMLInputElement).value) || 0)" />
       </div>
     </div>
-    <div class="form-group">
-      <label for="chunk-properties">Properties (JSON)</label>
-      <textarea id="chunk-properties" :value="propertiesString" @input="updateProperties(($event.target as HTMLTextAreaElement).value)"></textarea>
-      <div v-if="propertiesError" class="error-message">{{ propertiesError }}</div>
+
+    <div class="form-group properties-editor">
+      <label>Properties</label>
+      <div v-for="(prop, index) in localProperties" :key="index" class="property-row">
+        <input type="text" v-model="prop.key" placeholder="Key" @change="updateProperties" />
+        <textarea v-model="prop.value" placeholder="Value (JSON)" @change="updateProperties" rows="1"></textarea>
+        <button @click="removeProperty(index)" class="remove-btn">-</button>
+      </div>
+      <button @click="addProperty" class="add-btn">Add Property</button>
     </div>
+
     <div class="form-group">
       <label for="chunk-tags">Tags</label>
       <input id="chunk-tags" type="text" :value="tagsString" @input="updateTags(($event.target as HTMLInputElement).value)" placeholder="comma, separated, tags" />
@@ -31,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import type { Chunk } from '@/stores/book';
 
 const props = defineProps<{
@@ -40,41 +58,112 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:modelValue']);
 
-const propertiesString = ref('');
-const propertiesError = ref('');
+const localProperties = ref<{ key: string; value: string }[]>([]);
 const tagsString = ref('');
 
-watch(() => props.modelValue, (newVal) => {
-  if (newVal) {
-    propertiesString.value = JSON.stringify(newVal.props || {}, null, 2);
-    tagsString.value = (newVal.props?.tags || []).join(', ');
+const SINGLETON_CHUNK_TYPES = ['outline', 'brief', 'characters', 'settings', 'style'];
+
+const isNameEditable = computed(() => {
+  const type = props.modelValue.type;
+  return !SINGLETON_CHUNK_TYPES.includes(type);
+});
+
+const displayName = computed(() => {
+  const chunk = props.modelValue;
+  if (SINGLETON_CHUNK_TYPES.includes(chunk.type)) {
+    return chunk.type.charAt(0).toUpperCase() + chunk.type.slice(1);
   }
-}, { immediate: true, deep: true });
+  if (chunk.type === 'scene') {
+    return chunk.props?.scene_title || '';
+  }
+  return chunk.props?.name || '';
+});
+
+watch(() => props.modelValue.id, () => {
+  if (props.modelValue && props.modelValue.props) {
+    tagsString.value = (props.modelValue.props.tags || []).join(', ');
+    const propsToEdit = { ...props.modelValue.props };
+    // Exclude properties that have dedicated UI elements in other editors
+    delete propsToEdit.tags;
+    delete propsToEdit.name;
+    delete propsToEdit.llm_group;
+    delete propsToEdit.temperature;
+    delete propsToEdit.applicable_jobs;
+    if (props.modelValue.type === 'scene') {
+      delete propsToEdit.scene_title;
+    }
+    localProperties.value = Object.entries(propsToEdit).map(([key, value]) => ({
+      key,
+      value: typeof value === 'string' ? value : JSON.stringify(value, null, 2),
+    }));
+  } else {
+    tagsString.value = '';
+    localProperties.value = [];
+  }
+}, { immediate: true });
 
 function update<K extends keyof Chunk>(key: K, value: Chunk[K]) {
   emit('update:modelValue', { ...props.modelValue, [key]: value });
 }
 
-function updateProperties(value: string) {
-  propertiesString.value = value;
-  try {
-    const newProperties = JSON.parse(value);
-    update('props', newProperties);
-    propertiesError.value = '';
-  } catch (e) {
-    propertiesError.value = 'Invalid JSON format.';
+function updateProperties() {
+  const newProps: { [key: string]: any } = {};
+
+  const newTags = tagsString.value.split(',').map(tag => tag.trim()).filter(Boolean);
+  if (newTags.length > 0) {
+    newProps.tags = newTags;
   }
+
+  localProperties.value.forEach(prop => {
+    if (prop.key) {
+      try {
+        newProps[prop.key] = JSON.parse(prop.value);
+      } catch (e) {
+        newProps[prop.key] = prop.value;
+      }
+    }
+  });
+  update('props', newProps);
+}
+
+function addProperty() {
+  localProperties.value.push({ key: '', value: '' });
+}
+
+function removeProperty(index: number) {
+  localProperties.value.splice(index, 1);
+  updateProperties();
+}
+
+function updateName(value: string) {
+  if (!isNameEditable.value) return;
+
+  const chunk = props.modelValue;
+  let propToUpdate = 'name';
+  if (chunk.type === 'scene') {
+    propToUpdate = 'scene_title';
+  }
+
+  const newProps = { ...chunk.props, [propToUpdate]: value };
+  update('props', newProps);
 }
 
 function updateTags(value: string) {
   tagsString.value = value;
-  const newTags = value.split(',').map(tag => tag.trim()).filter(Boolean);
-  const newProps = { ...props.modelValue.props, tags: newTags };
-  update('props', newProps);
+  updateProperties();
 }
 </script>
 
 <style scoped>
+.chunk-name-input {
+  font-size: 1.25rem;
+  font-weight: 600;
+  border: none;
+  padding: 0.5rem;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+}
+
 .metadata-editor {
   padding: 1rem;
   border-bottom: 1px solid #e0e0e0;
@@ -89,6 +178,7 @@ function updateTags(value: string) {
   display: flex;
   flex-direction: column;
   flex-grow: 1;
+  margin-bottom: 1rem;
 }
 .form-group label {
   margin-bottom: 0.5rem;
@@ -100,13 +190,36 @@ function updateTags(value: string) {
   border: 1px solid #ccc;
   border-radius: 4px;
 }
-.form-group textarea {
-  min-height: 100px;
-  font-family: monospace;
+
+.properties-editor .property-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
 }
-.error-message {
-  color: red;
-  font-size: 0.875rem;
-  margin-top: 0.25rem;
+.property-row input {
+  flex: 1;
+}
+.property-row textarea {
+  flex: 2;
+  font-family: monospace;
+  resize: vertical;
+}
+.remove-btn, .add-btn {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.remove-btn {
+  background-color: #f44336;
+  color: white;
+  border: none;
+}
+.add-btn {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  align-self: flex-start;
 }
 </style>

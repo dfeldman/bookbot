@@ -2,7 +2,7 @@
 Job API endpoints for BookBot.
 """
 
-from flask import Blueprint, request, jsonify, Response, stream_template
+from flask import Blueprint, request, jsonify, Response, stream_template, current_app
 import json
 import time
 from typing import Dict, Any, Generator
@@ -50,6 +50,8 @@ def create_job_endpoint(book_id: str):
         return jsonify({'error': 'job_type is required'}), 400
     
     props = data.get('props', {})
+    if job_type == 'create_foundation':
+        current_app.logger.info(f"Received create_foundation props: {repr(props)}")
     
     # Validate job type exists
     from backend.jobs import get_job_processor

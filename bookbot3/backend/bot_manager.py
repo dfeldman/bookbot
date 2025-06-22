@@ -136,7 +136,7 @@ INSTRUCTIONS:
 
 Create detailed setting descriptions now:""",
         
-        'tag_content': """You are a content tagger. Add relevant hashtags to the provided content to help with future search and organization.
+        'tag_content': """You are a content tagger. Your task is to add relevant hashtags to the provided content, preserving the original text and formatting completely.
 
 CONTENT TO TAG:
 {content}
@@ -145,23 +145,132 @@ CONTENT TYPE: {content_type}
 GENRE: {genre}
 
 INSTRUCTIONS:
-1. Add 3-6 relevant hashtags to each major section
-2. Use hashtags for themes, genres, character types, settings, plot elements
-3. Place hashtags at the end of section headers
-4. Use lowercase with underscores for multi-word tags
-5. Be specific and useful for future search
-6. Don't change the content, only add hashtags
+1. Add 3-6 relevant hashtags to each major section header (lines starting with ## or ###).
+2. Place the hashtags at the end of the header lines.
+3. Use hashtags for themes, genres, character types, settings, plot elements.
+4. Use lowercase with underscores for multi-word tags (e.g., #urban_fantasy).
+5. Be specific and useful for future search.
+6. CRITICAL: You MUST NOT change, reformat, or remove any part of the original content. The output must be identical to the input, with only the hashtags added to the headers. Preserve all newlines and whitespace exactly as they appear in the original content.
 
-Example:
-## Chapter 1: The Beginning #action #mystery #urban_setting
-### Scene: Detective arrives at crime scene #investigation #police #tension
+Example of what to do:
 
-Add hashtags to the content now, preserving all original text:"""
+INPUT:
+## Chapter 1: The Beginning
+The story starts here.
+
+### Scene: A new hero
+A hero is introduced.
+They are brave.
+
+OUTPUT:
+## Chapter 1: The Beginning #prologue #hero_introduction
+The story starts here.
+
+### Scene: A new hero #character_moment #origin_story
+A hero is introduced.
+They are brave.
+
+Now, add hashtags to the content, preserving all original text and formatting perfectly."""
     }
     
     def __init__(self):
         """Initialize the bot manager."""
         pass
+
+    def add_scene_ids(self, outline_text: str):
+        """
+        Parses an outline to find scene definitions. If a scene does not have an ID,
+        it adds a unique one in the format [[Scene ...]]. It returns the modified
+        outline along with information about each scene.
+
+        This function is designed to be idempotent and handle outlines that may
+        already contain scene IDs.
+
+        Args:
+            outline_text: The book outline with markdown formatting.
+
+        Returns:
+            A tuple containing:
+            - The modified outline text with scene IDs added or preserved.
+            - A list of dicts, each with 'outline_section_id', 'chapter', and 'scene_title'.
+        """
+        lines = outline_text.split('\n')
+        new_lines = []
+        scene_info = []
+        current_chapter = 0
+
+        # Find the highest existing ID to ensure new IDs are unique
+        existing_ids = [int(i) for i in re.findall(r'\[\[Scene\s+(\d+)\]\]', outline_text)]
+        scene_counter = max(existing_ids) + 1 if existing_ids else 1
+
+        # Regex for scenes that already have an ID
+        scene_with_id_regex = re.compile(r"###\s*Scene:\s*(.*?)(?:\s*\[\[Scene\s*(\d+)\]\])?$", re.IGNORECASE)
+        scene_without_id_regex = re.compile(r"###\s*Scene:\s*(.*)", re.IGNORECASE)
+
+        for line in lines:
+            line_stripped = line.strip()
+            chapter_match = re.match(r'^##\s+Chapter\s+(\d+)', line_stripped)
+            
+            if chapter_match:
+                current_chapter = int(chapter_match.group(1))
+                new_lines.append(line)
+                continue
+
+            # First, try to match a scene that already has an ID. This is more specific.
+            scene_match_with_id = scene_with_id_regex.match(line_stripped)
+            if scene_match_with_id and current_chapter > 0:
+                scene_title = scene_match_with_id.group(1).strip()
+                # This regex will match scenes with or without an ID already present.
+                # group(2) will be the ID if it exists.
+                if scene_match_with_id.group(2):
+                    outline_section_id = int(scene_match_with_id.group(2))
+                    new_lines.append(line) # Preserve original line
+                else:
+                    outline_section_id = scene_counter
+                    scene_counter += 1
+                    new_line_with_id = f"{line.rstrip()} [[Scene {outline_section_id}]]"
+                    new_lines.append(new_line_with_id)
+
+                scene_info.append({
+                    'outline_section_id': outline_section_id,
+                    'chapter': current_chapter,
+                    'scene_title': scene_title
+                })
+                continue
+
+            # This second check is now redundant with the improved regex, but kept for safety.
+            scene_match_without_id = scene_without_id_regex.match(line_stripped)
+            if scene_match_without_id and current_chapter > 0:
+                scene_title = scene_match_without_id.group(1).strip()
+                outline_section_id = scene_counter
+                scene_counter += 1
+                new_line_with_id = f"{line.rstrip()} [[Scene {outline_section_id}]]"
+                new_lines.append(new_line_with_id)
+                scene_info.append({
+                    'outline_section_id': outline_section_id,
+                    'chapter': current_chapter,
+                    'scene_title': scene_title
+                })
+                continue
+
+            new_lines.append(line)
+
+        return '\n'.join(new_lines), scene_info
+
+    def remove_scene_ids(self, outline_text: str) -> str:
+        """
+        Removes scene IDs (e.g., [[Scene 123]]) from the outline text.
+
+        Args:
+            outline_text: The outline text, potentially with scene IDs.
+
+        Returns:
+            The outline text with all scene IDs removed.
+        """
+        # This regex finds the scene ID pattern and the whitespace before it
+        # to ensure the line is cleaned up nicely.
+        scene_id_regex = re.compile(r'\s*\[\[Scene\s*\d+\]\]')
+        return scene_id_regex.sub('', outline_text)
     
     def get_llm_call(
         self,
@@ -229,100 +338,7 @@ Add hashtags to the content now, preserving all original text:"""
         except KeyError as e:
             raise ValueError(f"Missing template variable: {e}")
     
-    def add_scene_ids(self, outline_text: str) -> tuple[str, list[str]]:
-        """
-        Add scene IDs to an outline and extract scene information.
-        
-        Args:
-            outline_text: The outline text to process
-            
-        Returns:
-            tuple: (modified_outline_text, list_of_scene_ids)
-        """
-        lines = outline_text.split('\n')
-        modified_lines = []
-        scene_ids = []
-        scene_counter = 1
-        
-        for line in lines:
-            # Check if this is a scene line (starts with ### Scene)
-            if line.strip().startswith('### Scene'):
-                # Add scene ID if not already present
-                if '[[Scene' not in line:
-                    scene_id = f"Scene {scene_counter}"
-                    scene_ids.append(scene_id)
-                    
-                    # Add the scene ID at the end of the line
-                    modified_line = f"{line.rstrip()} [[{scene_id}]]"
-                    modified_lines.append(modified_line)
-                    scene_counter += 1
-                else:
-                    # Extract existing scene ID
-                    match = re.search(r'\[\[(Scene \d+)\]\]', line)
-                    if match:
-                        scene_ids.append(match.group(1))
-                    modified_lines.append(line)
-            else:
-                modified_lines.append(line)
-        
-        return '\n'.join(modified_lines), scene_ids
-    
-    def extract_scenes_from_outline(self, outline_text: str) -> list[Dict[str, Any]]:
-        """
-        Extract scene information from an outline for creating scene chunks.
-        
-        Args:
-            outline_text: The outline text with scene IDs
-            
-        Returns:
-            list: Scene information dictionaries
-        """
-        scenes = []
-        lines = outline_text.split('\n')
-        current_chapter = None
-        chapter_number = 0
-        scene_order = 0
-        
-        for line in lines:
-            line = line.strip()
-            
-            # Track current chapter
-            if line.startswith('## ') and 'Chapter' in line:
-                # Extract chapter number
-                chapter_match = re.search(r'Chapter (\d+)', line)
-                if chapter_match:
-                    chapter_number = int(chapter_match.group(1))
-                else:
-                    chapter_number += 1
-                current_chapter = line
-                scene_order = 0
-            
-            # Extract scene information
-            elif line.startswith('### Scene') and '[[Scene' in line:
-                scene_order += 1
-                
-                # Extract scene ID
-                scene_id_match = re.search(r'\[\[(Scene \d+)\]\]', line)
-                scene_id = scene_id_match.group(1) if scene_id_match else f"Scene {len(scenes) + 1}"
-                
-                # Extract scene title (remove Scene ID)
-                scene_title = re.sub(r'\s*\[\[Scene \d+\]\]', '', line)
-                scene_title = re.sub(r'^### Scene:\s*', '', scene_title)
-                
-                # Extract tags
-                tags = re.findall(r'#(\w+)', scene_title)
-                scene_title_clean = re.sub(r'\s*#\w+', '', scene_title).strip()
-                
-                scenes.append({
-                    'scene_id': scene_id,
-                    'title': scene_title_clean,
-                    'chapter': chapter_number,
-                    'order': float(scene_order),
-                    'tags': tags,
-                    'chapter_title': current_chapter
-                })
-        
-        return scenes
+
 
 
 # Global instance

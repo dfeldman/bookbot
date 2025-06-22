@@ -1,0 +1,2280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Book Cover Designer</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Bebas+Neue&family=Oswald:wght@400;700&family=Cinzel:wght@400;600&family=Dancing+Script:wght@400;700&family=Fredoka+One&family=Righteous&family=Creepster&family=Bungee&family=Fascinate&family=Nosifer&family=Butcherman&family=Metal+Mania&family=Orbitron:wght@400;700;900&family=Audiowide&family=Russo+One&family=Black+Ops+One&family=Monoton&family=Lobster&family=Pacifico&family=Great+Vibes&family=Abril+Fatface&family=Ultra&family=Kalam:wght@400;700&family=Amatic+SC:wght@400;700&family=Bangers&family=Bungee+Shade&family=Caveat:wght@400;700&family=Comfortaa:wght@400;700&family=Creepster+Caps&family=Eater&family=Frijole&family=Griffy&family=Henny+Penny&family=IM+Fell+English+SC&family=Jolly+Lodger&family=Kranky&family=Luckiest+Guy&family=Macondo&family=Merienda:wght@400;700&family=New+Rocker&family=Pirata+One&family=Press+Start+2P&family=Rye&family=Shrikhand&family=Special+Elite&family=Stardos+Stencil:wght@400;700&family=Titillium+Web:wght@400;700;900&family=UnifrakturMaguntia&family=Vampiro+One&family=Wallpoet&family=Zcool+QingKe+HuangYou&family=Alfa+Slab+One&family=Anton&family=Archivo+Black&family=Bevan&family=Bungee+Outline&family=Faster+One&family=Iceberg&family=Jura:wght@400;700&family=Megrim&family=Michroma&family=Permanent+Marker&family=Poiret+One&family=Rajdhani:wght@400;700&family=Saira+Stencil+One&family=Staatliches&family=Teko:wght@400;700&family=Turret+Road:wght@400;700&family=Yanone+Kaffeesatz:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+            min-height: 80vh;
+        }
+
+        .preview-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .cover-preview {
+            width: 300px;
+            height: 450px;
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            cursor: default;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .text-element {
+            position: absolute;
+            cursor: move;
+            user-select: none;
+            padding: 10px;
+            border-radius: 5px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+            line-height: 1.2;
+            text-align: center;
+            max-width: 90%;
+        }
+
+        .text-element:hover {
+            outline: 2px dashed rgba(255, 255, 255, 0.8);
+        }
+
+        .text-element.dragging {
+            z-index: 1000;
+            transform: scale(1.05);
+        }
+
+        .drop-cap-text {
+            display: block;
+        }
+
+        .drop-cap {
+            float: left;
+            font-size: 2.5em;
+            line-height: 0.8;
+            margin-right: 0.1em;
+            margin-top: 0.1em;
+        }
+
+        .drop-cap-rest {
+            display: inline;
+        }
+
+        .svg-element {
+            position: absolute;
+            cursor: move;
+            user-select: none;
+            pointer-events: all;
+        }
+
+        .svg-element:hover {
+            outline: 2px dashed rgba(255, 255, 255, 0.8);
+        }
+
+        .svg-element.dragging {
+            z-index: 1000;
+            transform: scale(1.05);
+        }
+
+        .svg-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .svg-option {
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+            background: white;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .svg-option:hover {
+            background: #f8f9fa;
+            transform: translateY(-2px);
+        }
+
+        .svg-option.active {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .svg-preview {
+            width: 30px;
+            height: 30px;
+            margin-bottom: 5px;
+        }
+
+        .controls-section {
+            overflow-y: auto;
+            max-height: 80vh;
+        }
+
+        .control-group {
+            background: white;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-group h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .gradient-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .gradient-option {
+            height: 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .gradient-option:hover {
+            transform: scale(1.05);
+        }
+
+        .gradient-option.active {
+            border-color: #667eea;
+            transform: scale(1.1);
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .image-option {
+            height: 60px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            background-size: cover;
+            background-position: center;
+            transition: all 0.3s;
+        }
+
+        .image-option:hover {
+            transform: scale(1.05);
+        }
+
+        .image-option.active {
+            border-color: #667eea;
+            transform: scale(1.1);
+        }
+
+        .effect-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .effect-option {
+            padding: 8px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+            background: white;
+            font-size: 11px;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .effect-option:hover {
+            background: #f8f9fa;
+            transform: translateY(-2px);
+        }
+
+        .effect-option.active {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .color-input {
+            width: 50px;
+            height: 40px;
+            padding: 0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .download-section {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-display {
+            background: #f8f9fa;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .file-input-display:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .range-input {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .cover-preview {
+                width: 250px;
+                height: 375px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="app-container">
+            <div class="header">
+                <h1>📚 Ultimate Book Cover Designer</h1>
+                <p>Create stunning book covers with drag-and-drop simplicity</p>
+            </div>
+            
+            <div class="main-content">
+                <!-- Preview Section -->
+                <div class="preview-section">
+                    <div 
+                        class="cover-preview" 
+                        ref="coverPreview"
+                        :style="{ 
+                            backgroundImage: currentBackground,
+                            background: backgroundType === 'gradient' ? currentBackground : undefined
+                        }"
+                        @mousedown="startDrag"
+                        @mousemove="drag"
+                        @mouseup="stopDrag"
+                        @mouseleave="stopDrag"
+                    >
+                        <div 
+                            v-for="(style, key) in textStyles"
+                            :key="key"
+                            class="text-element"
+                            :class="{ dragging: isDragging === key }"
+                            :style="getTextStyle(key)"
+                            :ref="key + 'Element'"
+                            :data-element="key"
+                        >
+                            <span v-if="style.dropCap && textContent[key]" class="drop-cap-text">
+                                <span class="drop-cap">{{ (textContent[key] || '').charAt(0) }}</span><span class="drop-cap-rest">{{ (textContent[key] || '').slice(1) }}</span>
+                            </span>
+                            <span v-else :style="{ textTransform: style.allCaps ? 'uppercase' : 'none' }">
+                                {{ textContent[key] || `Your ${key}` }}
+                            </span>
+                        </div>
+
+                        <!-- SVG Filter Definitions -->
+                        <svg style="position: absolute; width: 0; height: 0;" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <!-- Fire Effect -->
+                                <filter id="svg-fire" x="-20%" y="-20%" width="140%" height="140%">
+                                    <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="10" result="noise"/>
+                                    <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0   0 0 0 1 0" result="alphaNoise"/>
+                                    <feComposite in="SourceGraphic" in2="alphaNoise" operator="atop" result="roughFire"/>
+                                    <feMorphology operator="dilate" radius="1.5" in="SourceAlpha" result="expandedOutline"/>
+                                    <feFlood flood-color="white" result="whiteColor"/>
+                                    <feComposite in="whiteColor" in2="expandedOutline" operator="in" result="whiteOutline"/>
+                                    <feMorphology operator="dilate" radius="4.5" in="SourceAlpha" result="expandedBlackOutline"/>
+                                    <feFlood flood-color="black" result="blackColor"/>
+                                    <feComposite in="blackColor" in2="expandedBlackOutline" operator="in" result="blackOutline"/>
+                                    <feOffset in="expandedBlackOutline" dx="5" dy="5" result="movedShadow"/>
+                                    <feMerge>
+                                        <feMergeNode in="movedShadow"/>
+                                        <feMergeNode in="blackOutline"/>
+                                        <feMergeNode in="whiteOutline"/>
+                                        <feMergeNode in="roughFire"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- 3D Extrude Effect -->
+                                <filter id="svg-extrude">
+                                    <feFlood flood-color="darkblue" result="extrudeColor"/>
+                                    <feConvolveMatrix order="8,8" divisor="1" kernelMatrix="1 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 1" in="SourceAlpha" result="extrudeShape"/>
+                                    <feOffset dx="-2" dy="2" in="extrudeShape" result="extrudeOffset"/>
+                                    <feComposite operator="in" in="extrudeColor" in2="extrudeOffset" result="extrudeLayer"/>
+                                    <feMerge>
+                                        <feMergeNode in="extrudeLayer"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Deep Extrude Effect -->
+                                <filter id="svg-deep-extrude">
+                                    <feFlood flood-color="#333333" result="extrudeColor"/>
+                                    <feOffset dx="5" dy="5" in="SourceAlpha" result="layer1"/>
+                                    <feOffset dx="4" dy="4" in="SourceAlpha" result="layer2"/>
+                                    <feOffset dx="3" dy="3" in="SourceAlpha" result="layer3"/>
+                                    <feOffset dx="2" dy="2" in="SourceAlpha" result="layer4"/>
+                                    <feOffset dx="1" dy="1" in="SourceAlpha" result="layer5"/>
+                                    <feComposite operator="in" in="extrudeColor" in2="layer1" result="extrudeLayer1"/>
+                                    <feComposite operator="in" in="extrudeColor" in2="layer2" result="extrudeLayer2"/>
+                                    <feComposite operator="in" in="extrudeColor" in2="layer3" result="extrudeLayer3"/>
+                                    <feComposite operator="in" in="extrudeColor" in2="layer4" result="extrudeLayer4"/>
+                                    <feComposite operator="in" in="extrudeColor" in2="layer5" result="extrudeLayer5"/>
+                                    <feMerge>
+                                        <feMergeNode in="extrudeLayer1"/>
+                                        <feMergeNode in="extrudeLayer2"/>
+                                        <feMergeNode in="extrudeLayer3"/>
+                                        <feMergeNode in="extrudeLayer4"/>
+                                        <feMergeNode in="extrudeLayer5"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Warped Text Effect -->
+                                <filter id="svg-warped">
+                                    <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" result="turbulence"/>
+                                    <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="10" xChannelSelector="R" yChannelSelector="B" result="displacedText"/>
+                                    <feMorphology operator="dilate" radius="2.5" in="displacedText" result="expandedOutline"/>
+                                    <feFlood flood-color="white" result="whiteColor"/>
+                                    <feComposite operator="in" in="whiteColor" in2="expandedOutline" result="whiteOutline"/>
+                                    <feMerge>
+                                        <feMergeNode in="whiteOutline"/>
+                                        <feMergeNode in="displacedText"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Stone Texture Effect -->
+                                <filter id="svg-stone" x="0" y="0" width="100%" height="100%">
+                                    <feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="1" result="roughTurbulence"/>
+                                    <feDisplacementMap in="SourceGraphic" in2="roughTurbulence" scale="2" xChannelSelector="R" yChannelSelector="G" result="roughenedEdges"/>
+                                    <feTurbulence type="turbulence" baseFrequency="0.1" numOctaves="3" seed="5" result="colorTurbulence"/>
+                                    <feColorMatrix in="colorTurbulence" type="matrix" values="0 0 0 0 0.6   0 0.7 0 0 0.5   0 0 0 0 0.4   5 5 5 5 1" result="stoneNoise"/>
+                                    <feComposite in="stoneNoise" in2="roughenedEdges" operator="in" result="stoneText"/>
+                                    <feMorphology operator="dilate" in="roughenedEdges" radius="3" result="dilatedEdges"/>
+                                    <feGaussianBlur in="dilatedEdges" stdDeviation="2" result="blurredEdges"/>
+                                    <feSpecularLighting in="blurredEdges" surfaceScale="3" specularConstant="1.25" specularExponent="30" lighting-color="#8b7355" result="beveledEffect">
+                                        <feDistantLight azimuth="270" elevation="35"/>
+                                    </feSpecularLighting>
+                                    <feComposite in="beveledEffect" in2="dilatedEdges" operator="in" result="beveledText"/>
+                                    <feMerge>
+                                        <feMergeNode in="beveledText"/>
+                                        <feMergeNode in="stoneText"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Glitch Effect -->
+                                <filter id="svg-glitch">
+                                    <feOffset in="SourceGraphic" dx="2" dy="0" result="redChannel"/>
+                                    <feColorMatrix in="redChannel" type="matrix" values="1 0 0 0 0   0 0 0 0 0   0 0 0 0 0   0 0 0 1 0" result="redOnly"/>
+                                    <feOffset in="SourceGraphic" dx="-2" dy="0" result="cyanChannel"/>
+                                    <feColorMatrix in="cyanChannel" type="matrix" values="0 0 0 0 0   0 1 0 0 0   0 0 1 0 0   0 0 0 1 0" result="cyanOnly"/>
+                                    <feMerge>
+                                        <feMergeNode in="redOnly"/>
+                                        <feMergeNode in="cyanOnly"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Plasma Effect -->
+                                <filter id="svg-plasma">
+                                    <feTurbulence baseFrequency="0.1" numOctaves="4" result="noise"/>
+                                    <feColorMatrix in="noise" type="hueRotate" values="90" result="coloredNoise"/>
+                                    <feComposite in="coloredNoise" in2="SourceAlpha" operator="in" result="plasmaTexture"/>
+                                    <feGaussianBlur in="plasmaTexture" stdDeviation="1" result="glowEffect"/>
+                                    <feMerge>
+                                        <feMergeNode in="glowEffect"/>
+                                        <feMergeNode in="plasmaTexture"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Lightning Effect -->
+                                <filter id="svg-lightning">
+                                    <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" result="lightningNoise"/>
+                                    <feColorMatrix in="lightningNoise" type="matrix" values="0 0 0 0 1   0 0 0 0 1   0 0 0 0 0   0 0 0 1 0" result="yellowLightning"/>
+                                    <feComposite in="yellowLightning" in2="SourceAlpha" operator="in" result="lightningTexture"/>
+                                    <feGaussianBlur in="lightningTexture" stdDeviation="2" result="lightningGlow"/>
+                                    <feMorphology operator="dilate" radius="1" in="SourceAlpha" result="outline"/>
+                                    <feFlood flood-color="white" result="whiteColor"/>
+                                    <feComposite in="whiteColor" in2="outline" operator="in" result="whiteOutline"/>
+                                    <feMerge>
+                                        <feMergeNode in="lightningGlow"/>
+                                        <feMergeNode in="whiteOutline"/>
+                                        <feMergeNode in="lightningTexture"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Metal Effect -->
+                                <filter id="svg-metal">
+                                    <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur"/>
+                                    <feSpecularLighting in="blur" surfaceScale="5" specularConstant="0.75" specularExponent="20" lighting-color="#c0c0c0" result="specOut">
+                                        <fePointLight x="50" y="50" z="200"/>
+                                    </feSpecularLighting>
+                                    <feComposite in="specOut" in2="SourceAlpha" operator="in" result="specOut2"/>
+                                    <feComposite in="SourceGraphic" in2="specOut2" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>
+                                </filter>
+
+                                <!-- Blood Drip Effect -->
+                                <filter id="svg-blood-drip">
+                                    <feTurbulence type="fractalNoise" baseFrequency="0.3" numOctaves="2" result="bloodNoise"/>
+                                    <feColorMatrix in="bloodNoise" type="matrix" values="0.8 0 0 0 0   0 0 0 0 0   0 0 0 0 0   0 0 0 1 0" result="redNoise"/>
+                                    <feOffset in="redNoise" dx="0" dy="3" result="dripOffset"/>
+                                    <feComposite in="dripOffset" in2="SourceAlpha" operator="in" result="bloodDrip"/>
+                                    <feGaussianBlur in="bloodDrip" stdDeviation="1" result="blurredDrip"/>
+                                    <feMerge>
+                                        <feMergeNode in="blurredDrip"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Magic Aura Effect -->
+                                <filter id="svg-magic-aura">
+                                    <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="coloredBlur"/>
+                                    <feColorMatrix in="coloredBlur" type="hueRotate" values="270" result="magicColor"/>
+                                    <feGaussianBlur in="magicColor" stdDeviation="5" result="aura"/>
+                                    <feMerge>
+                                        <feMergeNode in="aura"/>
+                                        <feMergeNode in="magicColor"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Frost Effect -->
+                                <filter id="svg-frost">
+                                    <feTurbulence baseFrequency="0.6" numOctaves="4" result="frostNoise"/>
+                                    <feColorMatrix in="frostNoise" type="matrix" values="0.7 0.8 1 0 0   0.8 0.9 1 0 0   0.9 0.9 1 0 0   0 0 0 1 0" result="blueFrost"/>
+                                    <feComposite in="blueFrost" in2="SourceAlpha" operator="in" result="frostTexture"/>
+                                    <feGaussianBlur in="frostTexture" stdDeviation="1" result="frostGlow"/>
+                                    <feMerge>
+                                        <feMergeNode in="frostGlow"/>
+                                        <feMergeNode in="frostTexture"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Beveled Extrude Effect -->
+                                <filter id="svg-beveled-extrude">
+                                    <feFlood flood-color="yellow" result="mainColor"/>
+                                    <feFlood flood-color="blue" result="outlineColor"/>
+                                    <feFlood flood-color="darkgoldenrod" result="shadowColor"/>
+                                    <feMorphology operator="dilate" radius="2.5" in="SourceAlpha" result="fatOutline"/>
+                                    <feComposite operator="in" in="outlineColor" in2="fatOutline" result="blueOutline"/>
+                                    <feComposite operator="in" in="mainColor" in2="SourceAlpha" result="yellowText"/>
+                                    <feOffset in="SourceAlpha" dx="-2" dy="2" result="insetShadowOffset"/>
+                                    <feComposite operator="out" in="SourceAlpha" in2="insetShadowOffset" result="insetShadowMask"/>
+                                    <feComposite operator="in" in="shadowColor" in2="insetShadowMask" result="insetShadow"/>
+                                    <feMerge>
+                                        <feMergeNode in="blueOutline"/>
+                                        <feMergeNode in="yellowText"/>
+                                        <feMergeNode in="insetShadow"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Displacement Effect -->
+                                <filter id="svg-displacement">
+                                    <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="4" result="displacement"/>
+                                    <feDisplacementMap in="SourceGraphic" in2="displacement" scale="15" xChannelSelector="R" yChannelSelector="G" result="displacedText"/>
+                                    <feMorphology operator="dilate" radius="2" in="displacedText" result="outline"/>
+                                    <feFlood flood-color="black" result="outlineColor"/>
+                                    <feComposite operator="in" in="outlineColor" in2="outline" result="blackOutline"/>
+                                    <feMerge>
+                                        <feMergeNode in="blackOutline"/>
+                                        <feMergeNode in="displacedText"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Turbulence Effect -->
+                                <filter id="svg-turbulence">
+                                    <feTurbulence type="turbulence" baseFrequency="0.08" numOctaves="3" result="turbulence"/>
+                                    <feColorMatrix in="turbulence" type="hueRotate" values="180" result="coloredTurbulence"/>
+                                    <feComposite in="coloredTurbulence" in2="SourceAlpha" operator="in" result="turbulentTexture"/>
+                                    <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="8" result="displacedGraphic"/>
+                                    <feMerge>
+                                        <feMergeNode in="turbulentTexture"/>
+                                        <feMergeNode in="displacedGraphic"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Rust Effect -->
+                                <filter id="svg-rust">
+                                    <feTurbulence type="fractalNoise" baseFrequency="0.4" numOctaves="3" result="rustNoise"/>
+                                    <feColorMatrix in="rustNoise" type="matrix" values="0.8 0.4 0.2 0 0   0.6 0.3 0.1 0 0   0.3 0.2 0.1 0 0   0 0 0 1 0" result="rustColor"/>
+                                    <feComposite in="rustColor" in2="SourceAlpha" operator="in" result="rustTexture"/>
+                                    <feGaussianBlur in="rustTexture" stdDeviation="1" result="rustGlow"/>
+                                    <feMorphology operator="dilate" radius="1" in="SourceAlpha" result="rustOutline"/>
+                                    <feFlood flood-color="#8b4513" result="brownOutline"/>
+                                    <feComposite operator="in" in="brownOutline" in2="rustOutline" result="rustBorder"/>
+                                    <feMerge>
+                                        <feMergeNode in="rustBorder"/>
+                                        <feMergeNode in="rustGlow"/>
+                                        <feMergeNode in="rustTexture"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Multi Light Effect -->
+                                <filter id="svg-multi-light">
+                                    <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur"/>
+                                    <feSpecularLighting in="blur" surfaceScale="4" specularConstant="1" specularExponent="15" lighting-color="#ffd700" result="light1">
+                                        <fePointLight x="30" y="30" z="100"/>
+                                    </feSpecularLighting>
+                                    <feSpecularLighting in="blur" surfaceScale="4" specularConstant="0.8" specularExponent="20" lighting-color="#ff6b6b" result="light2">
+                                        <fePointLight x="70" y="30" z="80"/>
+                                    </feSpecularLighting>
+                                    <feSpecularLighting in="blur" surfaceScale="4" specularConstant="0.6" specularExponent="25" lighting-color="#4ecdc4" result="light3">
+                                        <fePointLight x="50" y="70" z="120"/>
+                                    </feSpecularLighting>
+                                    <feComposite in="light1" in2="SourceAlpha" operator="in" result="constrainedLight1"/>
+                                    <feComposite in="light2" in2="SourceAlpha" operator="in" result="constrainedLight2"/>
+                                    <feComposite in="light3" in2="SourceAlpha" operator="in" result="constrainedLight3"/>
+                                    <feComposite in="constrainedLight1" in2="constrainedLight2" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="combinedLights"/>
+                                    <feComposite in="combinedLights" in2="constrainedLight3" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="allLights"/>
+                                    <feComposite in="SourceGraphic" in2="allLights" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>
+                                </filter>
+
+                                <!-- Specular Effect -->
+                                <filter id="svg-specular">
+                                    <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur"/>
+                                    <feSpecularLighting in="blur" surfaceScale="8" specularConstant="2" specularExponent="40" lighting-color="white" result="specular">
+                                        <feDistantLight azimuth="45" elevation="60"/>
+                                    </feSpecularLighting>
+                                    <feComposite in="specular" in2="SourceAlpha" operator="in" result="constrainedSpecular"/>
+                                    <feComposite in="SourceGraphic" in2="constrainedSpecular" operator="arithmetic" k1="0" k2="1" k3="2" k4="0"/>
+                                </filter>
+
+                                <!-- Rim Light Effect -->
+                                <filter id="svg-rim-light">
+                                    <feMorphology operator="dilate" radius="3" in="SourceAlpha" result="dilated"/>
+                                    <feComposite operator="out" in="dilated" in2="SourceAlpha" result="rim"/>
+                                    <feGaussianBlur in="rim" stdDeviation="2" result="rimGlow"/>
+                                    <feFlood flood-color="#00bfff" result="rimColor"/>
+                                    <feComposite operator="in" in="rimColor" in2="rimGlow" result="coloredRim"/>
+                                    <feMerge>
+                                        <feMergeNode in="coloredRim"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Chromatic Aberration Effect -->
+                                <filter id="svg-chromatic">
+                                    <feOffset in="SourceGraphic" dx="1" dy="0" result="redChannel"/>
+                                    <feColorMatrix in="redChannel" type="matrix" values="1 0 0 0 0   0 0 0 0 0   0 0 0 0 0   0 0 0 1 0" result="redOnly"/>
+                                    <feOffset in="SourceGraphic" dx="-1" dy="0" result="blueChannel"/>
+                                    <feColorMatrix in="blueChannel" type="matrix" values="0 0 0 0 0   0 0 0 0 0   0 0 1 0 0   0 0 0 1 0" result="blueOnly"/>
+                                    <feOffset in="SourceGraphic" dx="0" dy="0.5" result="greenChannel"/>
+                                    <feColorMatrix in="greenChannel" type="matrix" values="0 0 0 0 0   0 1 0 0 0   0 0 0 0 0   0 0 0 1 0" result="greenOnly"/>
+                                    <feMerge>
+                                        <feMergeNode in="redOnly"/>
+                                        <feMergeNode in="greenOnly"/>
+                                        <feMergeNode in="blueOnly"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Datamosh Effect -->
+                                <filter id="svg-datamosh">
+                                    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="dataNoise"/>
+                                    <feDisplacementMap in="SourceGraphic" in2="dataNoise" scale="3" result="datamoshed"/>
+                                    <feComponentTransfer in="datamoshed" result="glitched">
+                                        <feFuncR type="discrete" tableValues="0 .5 1 .5"/>
+                                        <feFuncG type="discrete" tableValues="1 0 .5 1"/>
+                                        <feFuncB type="discrete" tableValues=".5 1 0 .5"/>
+                                    </feComponentTransfer>
+                                    <feMerge>
+                                        <feMergeNode in="glitched"/>
+                                        <feMergeNode in="datamoshed"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Decay Effect -->
+                                <filter id="svg-decay">
+                                    <feTurbulence type="fractalNoise" baseFrequency="0.3" numOctaves="4" result="decayNoise"/>
+                                    <feColorMatrix in="decayNoise" type="matrix" values="0.5 0.3 0.2 0 0   0.4 0.3 0.2 0 0   0.3 0.2 0.1 0 0   0 0 0 1 0" result="decayColor"/>
+                                    <feComposite in="decayColor" in2="SourceAlpha" operator="in" result="decayTexture"/>
+                                    <feComponentTransfer in="decayTexture" result="crackedDecay">
+                                        <feFuncA type="discrete" tableValues="0 0 0 1 0 1 0 0 1 0"/>
+                                    </feComponentTransfer>
+                                    <feGaussianBlur in="crackedDecay" stdDeviation="1" result="decayGlow"/>
+                                    <feMerge>
+                                        <feMergeNode in="decayGlow"/>
+                                        <feMergeNode in="crackedDecay"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Shadow Realm Effect -->
+                                <filter id="svg-shadow-realm">
+                                    <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="darkBlur"/>
+                                    <feColorMatrix in="darkBlur" type="matrix" values="0.3 0 0.3 0 0   0 0 0.3 0 0   0.3 0 0.3 0 0   0 0 0 1 0" result="purpleGlow"/>
+                                    <feOffset in="purpleGlow" dx="3" dy="3" result="offsetGlow"/>
+                                    <feTurbulence baseFrequency="0.02" numOctaves="3" result="shadowNoise"/>
+                                    <feDisplacementMap in="SourceGraphic" in2="shadowNoise" scale="5" result="distortedText"/>
+                                    <feMerge>
+                                        <feMergeNode in="offsetGlow"/>
+                                        <feMergeNode in="purpleGlow"/>
+                                        <feMergeNode in="distortedText"/>
+                                    </feMerge>
+                                </filter>
+
+                                <!-- Molten Core Effect -->
+                                <filter id="svg-molten-core">
+                                    <feTurbulence type="fractalNoise" baseFrequency="0.15" numOctaves="3" result="moltenNoise"/>
+                                    <feColorMatrix in="moltenNoise" type="matrix" values="1 0.5 0 0 0   0.8 0.3 0 0 0   0.5 0.1 0 0 0   0 0 0 1 0" result="moltenColor"/>
+                                    <feComposite in="moltenColor" in2="SourceAlpha" operator="in" result="moltenTexture"/>
+                                    <feGaussianBlur in="moltenTexture" stdDeviation="2" result="moltenGlow"/>
+                                    <feOffset in="moltenGlow" dx="0" dy="1" result="innerGlow"/>
+                                    <feMorphology operator="dilate" radius="2" in="SourceAlpha" result="moltenOutline"/>
+                                    <feFlood flood-color="#8b0000" result="darkRed"/>
+                                    <feComposite operator="in" in="darkRed" in2="moltenOutline" result="darkOutline"/>
+                                    <feMerge>
+                                        <feMergeNode in="darkOutline"/>
+                                        <feMergeNode in="innerGlow"/>
+                                        <feMergeNode in="moltenTexture"/>
+                                    </feMerge>
+                                </filter>
+                            </defs>
+                        </svg>
+
+                        <!-- SVG Elements -->
+                        <div 
+                            v-for="(svg, key) in (svgElements.value || {})"
+                            :key="'svg-' + key"
+                            class="svg-element"
+                            :class="{ dragging: isDragging === key }"
+                            :style="getSvgStyle(key)"
+                            :data-element="key"
+                            v-html="generateSvg(svg.type, svg)"
+                        ></div>
+                    </div>
+                    
+                    <div class="download-section">
+                        <button class="download-btn" @click="downloadCover">
+                            📥 Download High-Res PNG
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Controls Section -->
+                <div class="controls-section">
+                    <!-- Text Management -->
+                    <div class="control-group">
+                        <h3>📝 Text Fields</h3>
+                        <div class="form-group">
+                            <label>Manage Text Elements</label>
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <button 
+                                    @click="addTextField" 
+                                    style="flex: 1; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;"
+                                >
+                                    ➕ Add Text Field
+                                </button>
+                                <button 
+                                    @click="removeTextField" 
+                                    :disabled="Object.keys(textStyles).length <= 1"
+                                    style="flex: 1; padding: 8px; background: #f44336; color: white; border: none; border-radius: 5px; cursor: pointer;"
+                                    :style="{ opacity: Object.keys(textStyles).length <= 1 ? 0.5 : 1 }"
+                                >
+                                    ➖ Remove Selected
+                                </button>
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <input 
+                                    type="text" 
+                                    :value="getTextContent(activeTextElement)"
+                                    @input="updateTextContent(activeTextElement, $event.target.value)"
+                                    :placeholder="`Enter ${activeTextElement} text`"
+                                    style="width: 100%;"
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Text Content -->
+                    <div class="control-group">
+                        <h3>📝 All Text Content</h3>
+                        <div v-for="(content, key) in textContent" :key="key" class="form-group">
+                            <label>{{ key.charAt(0).toUpperCase() + key.slice(1) }}</label>
+                            <input 
+                                type="text" 
+                                :value="content"
+                                @input="updateTextContent(key, $event.target.value)"
+                                :placeholder="`Enter ${key} text`"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Background Selection -->
+                    <div class="control-group">
+                        <h3>🎨 Background</h3>
+                        <div class="form-group">
+                            <label>Background Type</label>
+                            <select v-model="backgroundType">
+                                <option value="gradient">Gradient</option>
+                                <option value="premade">Premade Images</option>
+                                <option value="custom">Custom Image</option>
+                            </select>
+                        </div>
+
+                        <div v-if="backgroundType === 'gradient'">
+                            <label>Choose Gradient</label>
+                            <div class="gradient-grid">
+                                <div 
+                                    v-for="(gradient, index) in gradients"
+                                    :key="index"
+                                    class="gradient-option"
+                                    :class="{ active: selectedGradient === index }"
+                                    :style="{ background: gradient }"
+                                    @click="selectGradient(index)"
+                                ></div>
+                            </div>
+                        </div>
+
+                        <div v-if="backgroundType === 'premade'">
+                            <label>Choose Image</label>
+                            <div class="image-grid">
+                                <div 
+                                    v-for="(image, index) in premadeImages"
+                                    :key="index"
+                                    class="image-option"
+                                    :class="{ active: selectedImage === index }"
+                                    :style="{ backgroundImage: `url(${image})` }"
+                                    @click="selectImage(index)"
+                                ></div>
+                            </div>
+                        </div>
+
+                        <div v-if="backgroundType === 'custom'">
+                            <label>Upload Your Image</label>
+                            <div class="file-input-wrapper">
+                                <input 
+                                    type="file" 
+                                    class="file-input"
+                                    accept="image/*"
+                                    @change="handleCustomImage"
+                                >
+                                <div class="file-input-display">
+                                    <p>{{ customImageName || 'Click to upload image' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Text Selection -->
+                    <div class="control-group">
+                        <h3>✏️ Edit Text</h3>
+                        <div class="form-group">
+                            <label>Select Text to Style</label>
+                            <select v-model="activeTextElement">
+                                <option v-for="(style, key) in textStyles" :key="key" :value="key">
+                                    {{ key.charAt(0).toUpperCase() + key.slice(1) }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input 
+                                    type="checkbox" 
+                                    v-model="styleAllElements"
+                                    style="margin-right: 8px;"
+                                >
+                                Style All Text Elements
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Text Styling -->
+                    <div class="control-group">
+                        <h3>🎭 Text Style</h3>
+                        
+                        <div class="form-group">
+                            <label>Font Family</label>
+                            <select v-model="getActiveStyle.fontFamily" @change="updateTextStyle('fontFamily', $event.target.value)">
+                                <optgroup label="Classic Serif">
+                                    <option value="Playfair Display">Playfair Display</option>
+                                    <option value="Cinzel">Cinzel</option>
+                                    <option value="Abril Fatface">Abril Fatface</option>
+                                    <option value="Ultra">Ultra</option>
+                                    <option value="IM Fell English SC">IM Fell English SC</option>
+                                    <option value="UnifrakturMaguntia">UnifrakturMaguntia</option>
+                                </optgroup>
+                                <optgroup label="Bold Display">
+                                    <option value="Bebas Neue">Bebas Neue</option>
+                                    <option value="Oswald">Oswald</option>
+                                    <option value="Righteous">Righteous</option>
+                                    <option value="Russo One">Russo One</option>
+                                    <option value="Black Ops One">Black Ops One</option>
+                                    <option value="Fredoka One">Fredoka One</option>
+                                    <option value="Anton">Anton</option>
+                                    <option value="Alfa Slab One">Alfa Slab One</option>
+                                    <option value="Archivo Black">Archivo Black</option>
+                                    <option value="Bevan">Bevan</option>
+                                    <option value="Staatliches">Staatliches</option>
+                                    <option value="Teko">Teko</option>
+                                    <option value="Rajdhani">Rajdhani</option>
+                                </optgroup>
+                                <optgroup label="Modern Sans">
+                                    <option value="Comfortaa">Comfortaa</option>
+                                    <option value="Titillium Web">Titillium Web</option>
+                                    <option value="Jura">Jura</option>
+                                    <option value="Poiret One">Poiret One</option>
+                                    <option value="Yanone Kaffeesatz">Yanone Kaffeesatz</option>
+                                    <option value="Turret Road">Turret Road</option>
+                                </optgroup>
+                                <optgroup label="Script & Handwritten">
+                                    <option value="Dancing Script">Dancing Script</option>
+                                    <option value="Lobster">Lobster</option>
+                                    <option value="Pacifico">Pacifico</option>
+                                    <option value="Great Vibes">Great Vibes</option>
+                                    <option value="Kalam">Kalam</option>
+                                    <option value="Amatic SC">Amatic SC</option>
+                                    <option value="Caveat">Caveat</option>
+                                    <option value="Merienda">Merienda</option>
+                                    <option value="Permanent Marker">Permanent Marker</option>
+                                    <option value="Special Elite">Special Elite</option>
+                                </optgroup>
+                                <optgroup label="Horror & Gothic">
+                                    <option value="Creepster">Creepster</option>
+                                    <option value="Butcherman">Butcherman</option>
+                                    <option value="Nosifer">Nosifer</option>
+                                    <option value="Eater">Eater</option>
+                                    <option value="Griffy">Griffy</option>
+                                    <option value="Vampiro One">Vampiro One</option>
+                                    <option value="Henny Penny">Henny Penny</option>
+                                    <option value="Jolly Lodger">Jolly Lodger</option>
+                                </optgroup>
+                                <optgroup label="Sci-Fi & Tech">
+                                    <option value="Orbitron">Orbitron</option>
+                                    <option value="Audiowide">Audiowide</option>
+                                    <option value="Michroma">Michroma</option>
+                                    <option value="Press Start 2P">Press Start 2P</option>
+                                    <option value="Megrim">Megrim</option>
+                                    <option value="Iceberg">Iceberg</option>
+                                    <option value="Faster One">Faster One</option>
+                                </optgroup>
+                                <optgroup label="Playful & Fun">
+                                    <option value="Bungee">Bungee</option>
+                                    <option value="Bangers">Bangers</option>
+                                    <option value="Luckiest Guy">Luckiest Guy</option>
+                                    <option value="Shrikhand">Shrikhand</option>
+                                    <option value="Kranky">Kranky</option>
+                                    <option value="Frijole">Frijole</option>
+                                    <option value="Macondo">Macondo</option>
+                                </optgroup>
+                                <optgroup label="Vintage & Western">
+                                    <option value="Fascinate">Fascinate</option>
+                                    <option value="Rye">Rye</option>
+                                    <option value="Pirata One">Pirata One</option>
+                                    <option value="New Rocker">New Rocker</option>
+                                    <option value="Stardos Stencil">Stardos Stencil</option>
+                                    <option value="Wallpoet">Wallpoet</option>
+                                </optgroup>
+                                <optgroup label="Stylized & Decorative">
+                                    <option value="Metal Mania">Metal Mania</option>
+                                    <option value="Monoton">Monoton</option>
+                                    <option value="Bungee Shade">Bungee Shade</option>
+                                    <option value="Bungee Outline">Bungee Outline</option>
+                                    <option value="Saira Stencil One">Saira Stencil One</option>
+                                    <option value="Zcool QingKe HuangYou">Zcool QingKe HuangYou</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Font Size</label>
+                            <input 
+                                type="range" 
+                                class="range-input"
+                                min="12" 
+                                max="60" 
+                                :value="getActiveStyle.fontSize"
+                                @input="updateTextStyle('fontSize', $event.target.value)"
+                            >
+                            <span>{{ getActiveStyle.fontSize }}px</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Font Weight</label>
+                            <select :value="getActiveStyle.fontWeight" @change="updateTextStyle('fontWeight', $event.target.value)">
+                                <option value="normal">Normal</option>
+                                <option value="bold">Bold</option>
+                                <option value="bolder">Extra Bold</option>
+                                <option value="lighter">Light</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <input 
+                                    type="checkbox" 
+                                    :checked="getActiveStyle.allCaps"
+                                    @change="updateTextStyle('allCaps', $event.target.checked)"
+                                    style="margin-right: 8px;"
+                                >
+                                ALL CAPS
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <input 
+                                    type="checkbox" 
+                                    :checked="getActiveStyle.dropCap"
+                                    @change="updateTextStyle('dropCap', $event.target.checked)"
+                                    style="margin-right: 8px;"
+                                >
+                                Drop Cap (Large First Letter)
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Primary Text Color</label>
+                            <input 
+                                type="color" 
+                                class="color-input"
+                                :value="getActiveStyle.color"
+                                @input="updateTextStyle('color', $event.target.value)"
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label>Secondary Color (for effects)</label>
+                            <input 
+                                type="color" 
+                                class="color-input"
+                                :value="getActiveStyle.secondaryColor"
+                                @input="updateTextStyle('secondaryColor', $event.target.value)"
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label>Text Effects</label>
+                            <div style="margin-bottom: 10px;">
+                                <label style="margin-bottom: 5px;">
+                                    <input 
+                                        type="radio" 
+                                        name="effectType" 
+                                        value="css"
+                                        :checked="getActiveStyle.effectType === 'css'"
+                                        @change="updateTextStyle('effectType', 'css')"
+                                        style="margin-right: 8px;"
+                                    >
+                                    CSS Effects
+                                </label>
+                                <label>
+                                    <input 
+                                        type="radio" 
+                                        name="effectType" 
+                                        value="svg"
+                                        :checked="getActiveStyle.effectType === 'svg'"
+                                        @change="updateTextStyle('effectType', 'svg')"
+                                        style="margin-right: 8px;"
+                                    >
+                                    SVG Filter Effects
+                                </label>
+                            </div>
+                            <div class="effect-grid">
+                                <div 
+                                    v-for="effect in (getActiveStyle.effectType === 'svg' ? svgTextEffects : textEffects)"
+                                    :key="effect.name"
+                                    class="effect-option"
+                                    :class="{ active: getActiveStyle.effect === effect.name }"
+                                    @click="applyTextEffect(effect.name)"
+                                    :style="effect.preview"
+                                >
+                                    {{ effect.label }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Shadow Color</label>
+                            <input 
+                                type="color" 
+                                class="color-input"
+                                :value="getActiveStyle.shadowColor"
+                                @input="updateTextStyle('shadowColor', $event.target.value)"
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label>Shadow Intensity</label>
+                            <input 
+                                type="range" 
+                                class="range-input"
+                                min="0" 
+                                max="20" 
+                                :value="getActiveStyle.shadowSize"
+                                @input="updateTextStyle('shadowSize', $event.target.value)"
+                            >
+                            <span>{{ getActiveStyle.shadowSize }}px</span>
+                        </div>
+                    </div>
+
+                    <!-- SVG Elements -->
+                    <div class="control-group">
+                        <h3>🎨 SVG Graphics</h3>
+                        <div class="form-group">
+                            <label>Manage SVG Elements</label>
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <button 
+                                    @click="addSvgElement" 
+                                    style="flex: 1; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;"
+                                >
+                                    ➕ Add SVG
+                                </button>
+                                <button 
+                                    @click="removeSvgElement" 
+                                    :disabled="!svgElements.value || Object.keys(svgElements.value).length === 0"
+                                    style="flex: 1; padding: 8px; background: #f44336; color: white; border: none; border-radius: 5px; cursor: pointer;"
+                                    :style="{ opacity: (!svgElements.value || Object.keys(svgElements.value).length === 0) ? 0.5 : 1 }"
+                                >
+                                    ➖ Remove Selected
+                                </button>
+                            </div>
+                        </div>
+
+                        <div v-if="svgElements.value && Object.keys(svgElements.value).length > 0" class="form-group">
+                            <label>Select SVG to Edit</label>
+                            <select v-model="activeSvgElement">
+                                <option v-for="(svg, key) in svgElements.value" :key="key" :value="key">
+                                    {{ svg.name || `SVG ${key}` }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <div v-if="activeSvgElement && svgElements.value && svgElements.value[activeSvgElement]" class="form-group">
+                            <label>SVG Type</label>
+                            <div class="svg-grid">
+                                <div 
+                                    v-for="svgType in svgTypesArray"
+                                    :key="svgType.name"
+                                    class="svg-option"
+                                    :class="{ active: svgElements.value[activeSvgElement].type === svgType.name }"
+                                    @click="updateSvgProperty('type', svgType.name)"
+                                >
+                                    <div class="svg-preview" v-html="generateSvg(svgType.name, { primaryColor: '#667eea', secondaryColor: '#764ba2', size: 30 })"></div>
+                                    <span style="font-size: 11px;">{{ svgType.label }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="activeSvgElement && svgElements.value && svgElements.value[activeSvgElement]" class="form-group">
+                            <label>Size</label>
+                            <input 
+                                type="range" 
+                                class="range-input"
+                                min="20" 
+                                max="200" 
+                                :value="svgElements.value[activeSvgElement].size"
+                                @input="updateSvgProperty('size', $event.target.value)"
+                            >
+                            <span>{{ svgElements.value[activeSvgElement].size }}px</span>
+                        </div>
+
+                        <div v-if="activeSvgElement && svgElements.value && svgElements.value[activeSvgElement]" class="form-group">
+                            <label>Primary Color</label>
+                            <input 
+                                type="color" 
+                                class="color-input"
+                                :value="svgElements.value[activeSvgElement].primaryColor"
+                                @input="updateSvgProperty('primaryColor', $event.target.value)"
+                            >
+                        </div>
+
+                        <div v-if="activeSvgElement && svgElements.value && svgElements.value[activeSvgElement]" class="form-group">
+                            <label>Secondary Color</label>
+                            <input 
+                                type="color" 
+                                class="color-input"
+                                :value="svgElements.value[activeSvgElement].secondaryColor"
+                                @input="updateSvgProperty('secondaryColor', $event.target.value)"
+                            >
+                        </div>
+
+                        <div v-if="activeSvgElement && svgElements.value && svgElements.value[activeSvgElement]" class="form-group">
+                            <label>Rotation</label>
+                            <input 
+                                type="range" 
+                                class="range-input"
+                                min="0" 
+                                max="360" 
+                                :value="svgElements.value[activeSvgElement].rotation"
+                                @input="updateSvgProperty('rotation', $event.target.value)"
+                            >
+                            <span>{{ svgElements.value[activeSvgElement].rotation }}°</span>
+                        </div>
+
+                        <div v-if="activeSvgElement && svgElements.value && svgElements.value[activeSvgElement]" class="form-group">
+                            <label>Opacity</label>
+                            <input 
+                                type="range" 
+                                class="range-input"
+                                min="0" 
+                                max="100" 
+                                :value="svgElements.value[activeSvgElement].opacity"
+                                @input="updateSvgProperty('opacity', $event.target.value)"
+                            >
+                            <span>{{ svgElements.value[activeSvgElement].opacity }}%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const title = ref('Your Book Title');
+                const subtitle = ref('An Amazing Subtitle');
+                const author = ref('Author Name');
+                const backgroundType = ref('gradient');
+                const selectedGradient = ref(0);
+                const selectedImage = ref(0);
+                const customImage = ref('');
+                const customImageName = ref('');
+                const activeTextElement = ref('title');
+                const styleAllElements = ref(false);
+                const isDragging = ref(null);
+                const dragOffset = ref({ x: 0, y: 0 });
+                const coverPreview = ref(null);
+
+                const textContent = ref({
+                    title: 'Your Book Title',
+                    subtitle: 'An Amazing Subtitle',
+                    author: 'Author Name'
+                });
+
+                const svgElements = ref({});
+                const activeSvgElement = ref('');
+
+                const svgTypesArray = [
+                    { name: 'decorative-border', label: 'Decorative Border' },
+                    { name: 'geometric-star', label: 'Geometric Star' },
+                    { name: 'art-deco-frame', label: 'Art Deco Frame' },
+                    { name: 'celtic-knot', label: 'Celtic Knot' },
+                    { name: 'flourish-ornament', label: 'Flourish Ornament' },
+                    { name: 'sacred-geometry', label: 'Sacred Geometry' },
+                    { name: 'vintage-corner', label: 'Vintage Corner' },
+                    { name: 'mandala-circle', label: 'Mandala Circle' },
+                    { name: 'minimalist-lines', label: 'Minimalist Lines' },
+                    { name: 'gothic-cross', label: 'Gothic Cross' },
+                    { name: 'nature-leaf', label: 'Nature Leaf' },
+                    { name: 'abstract-waves', label: 'Abstract Waves' }
+                ];
+
+                const gradients = [
+                    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+                    'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+                    'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+                    'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+                    'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
+                    'linear-gradient(135deg, #667db6 0%, #0082c8 100%)',
+                    'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
+                    'linear-gradient(135deg, #96fbc4 0%, #f9f586 100%)'
+                ];
+
+                const premadeImages = [
+                    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxkZWZzPgo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50MF9saW5lYXJfNF8yNyIgeDE9IjAiIHkxPSIwIiB4Mj0iMzAwIiB5Mj0iNDUwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IiMxYTIzNDAiLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjNGY0NjY4Ii8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl80XzI3KSIvPgo8L3N2Zz4K',
+                    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxkZWZzPgo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50MF9saW5lYXJfNF8yOCIgeDE9IjAiIHkxPSIwIiB4Mj0iMzAwIiB5Mj0iNDUwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IiNmZjE3NDQiLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZmY5MDY4Ii8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl80XzI4KSIvPgo8L3N2Zz4K',
+                    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxkZWZzPgo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50MF9saW5lYXJfNF8yOSIgeDE9IjAiIHkxPSIwIiB4Mj0iMzAwIiB5Mj0iNDUwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IiMxNGI4YTYiLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZjBmNGY4Ii8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl80XzI5KSIvPgo8L3N2Zz4K',
+                    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxkZWZzPgo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50MF9saW5lYXJfNF8zMCIgeDE9IjAiIHkxPSIwIiB4Mj0iMzAwIiB5Mj0iNDUwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IiM4YjUwZjciLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZmZmNGZmIi8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl80XzMwKSIvPgo8L3N2Zz4K'
+                ];
+
+                const textStyles = ref({
+                    title: {
+                        fontSize: 36,
+                        fontWeight: 'bold',
+                        fontFamily: 'Playfair Display',
+                        color: '#ffffff',
+                        secondaryColor: '#ffd700',
+                        effect: 'bevel-deep',
+                        effectType: 'css',
+                        shadowColor: '#000000',
+                        shadowSize: 4,
+                        allCaps: false,
+                        dropCap: false,
+                        position: { x: 150, y: 100 }
+                    },
+                    subtitle: {
+                        fontSize: 18,
+                        fontWeight: 'normal',
+                        fontFamily: 'Oswald',
+                        color: '#f0f0f0',
+                        secondaryColor: '#4ecdc4',
+                        effect: 'shadow',
+                        effectType: 'css',
+                        shadowColor: '#000000',
+                        shadowSize: 2,
+                        allCaps: false,
+                        dropCap: false,
+                        position: { x: 150, y: 200 }
+                    },
+                    author: {
+                        fontSize: 24,
+                        fontWeight: 'normal',
+                        fontFamily: 'Cinzel',
+                        color: '#ffffff',
+                        secondaryColor: '#ff6b6b',
+                        effect: 'glow',
+                        effectType: 'css',
+                        shadowColor: '#000000',
+                        shadowSize: 3,
+                        allCaps: false,
+                        dropCap: false,
+                        position: { x: 150, y: 380 }
+                    }
+                });
+
+                const textEffects = [
+                    // Basic Effects
+                    { name: 'shadow', label: 'Shadow', preview: { textShadow: '2px 2px 4px rgba(0,0,0,0.8)' } },
+                    { name: 'outline', label: 'Outline', preview: { textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' } },
+                    { name: 'glow', label: 'Glow', preview: { textShadow: '0 0 10px #fff, 0 0 20px #fff' } },
+                    { name: 'dual-glow', label: 'Dual Glow', preview: { textShadow: '0 0 10px #ff0080, 0 0 20px #00ff80' } },
+                    
+                    // Bevel Effects
+                    { name: 'bevel-light', label: 'Bevel Light', preview: { textShadow: '1px 1px 0px #fff, 2px 2px 1px #ccc' } },
+                    { name: 'bevel-deep', label: 'Bevel Deep', preview: { textShadow: '1px 1px 0px #fff, 2px 2px 2px #888, 3px 3px 3px #666' } },
+                    { name: 'bevel-metal', label: 'Metal Bevel', preview: { textShadow: '1px 1px 0px #e0e0e0, 2px 2px 1px #b0b0b0' } },
+                    { name: 'bevel-inset', label: 'Inset Bevel', preview: { textShadow: '-1px -1px 0px #fff, 1px 1px 0px #000' } },
+                    { name: 'round-bevel', label: 'Round Bevel', preview: { color: 'transparent', textShadow: '0 0.025em 0.0375em currentColor, 0 0 0 #fff', WebkitTextStroke: '0.025em currentColor', WebkitTextFillColor: 'transparent' } },
+                    { name: 'emboss', label: 'Emboss', preview: { textShadow: '1px 1px 0 #ccc, 2px 2px 0 #999' } },
+                    { name: 'engraved', label: 'Engraved', preview: { color: 'transparent', background: '#666666', backgroundClip: 'text', WebkitBackgroundClip: 'text', textShadow: '3px 5px 1px rgba(245, 245, 245, 0.5)' } },
+                    { name: 'embossed', label: 'Embossed', preview: { color: '#f0f0f0', background: '#666666', backgroundClip: 'text', WebkitBackgroundClip: 'text', textShadow: '1px 4px 4px #555555' } },
+                    { name: '3d-bevel', label: '3D Bevel', preview: { textShadow: '1px 1px 2px rgba(0,0,0,0.2), -1px -1px 2px rgba(255,255,255,0.2), 0 0 10px rgba(0,0,0,0.3)' } },
+                    
+                    // Foil Effects (Realistic Book Cover Gradients)
+                    { name: 'gold-foil', label: 'Gold Foil', preview: { 
+                        background: 'linear-gradient(135deg, #ffd700 0%, #ffed4a 15%, #fff59d 30%, #ffd700 45%, #b8860b 60%, #ffd700 75%, #fff176 90%, #ffd700 100%)', 
+                        backgroundClip: 'text', 
+                        WebkitBackgroundClip: 'text', 
+                        color: 'transparent',
+                        textShadow: '0px 1px 2px rgba(0,0,0,0.3)'
+                    } },
+                    { name: 'silver-foil', label: 'Silver Foil', preview: { 
+                        background: 'linear-gradient(135deg, #c0c0c0 0%, #f5f5f5 15%, #e8e8e8 30%, #c0c0c0 45%, #a8a8a8 60%, #d3d3d3 75%, #f0f0f0 90%, #c0c0c0 100%)', 
+                        backgroundClip: 'text', 
+                        WebkitBackgroundClip: 'text', 
+                        color: 'transparent',
+                        textShadow: '0px 1px 2px rgba(0,0,0,0.2)'
+                    } },
+                    { name: 'copper-foil', label: 'Copper Foil', preview: { 
+                        background: 'linear-gradient(135deg, #b87333 0%, #cd853f 15%, #daa520 30%, #b87333 45%, #8b4513 60%, #cd853f 75%, #f4a460 90%, #b87333 100%)', 
+                        backgroundClip: 'text', 
+                        WebkitBackgroundClip: 'text', 
+                        color: 'transparent',
+                        textShadow: '0px 1px 2px rgba(0,0,0,0.3)'
+                    } },
+                    { name: 'rose-gold-foil', label: 'Rose Gold Foil', preview: { 
+                        background: 'linear-gradient(135deg, #e6b8a2 0%, #f4c2a1 15%, #f7d794 30%, #e6b8a2 45%, #d4a574 60%, #f4c2a1 75%, #f9e79f 90%, #e6b8a2 100%)', 
+                        backgroundClip: 'text', 
+                        WebkitBackgroundClip: 'text', 
+                        color: 'transparent',
+                        textShadow: '0px 1px 2px rgba(0,0,0,0.2)'
+                    } },
+                    { name: 'platinum-foil', label: 'Platinum Foil', preview: { 
+                        background: 'linear-gradient(135deg, #e5e4e2 0%, #f8f8ff 15%, #f5f5f5 30%, #e5e4e2 45%, #d3d3d3 60%, #f0f0f0 75%, #ffffff 90%, #e5e4e2 100%)', 
+                        backgroundClip: 'text', 
+                        WebkitBackgroundClip: 'text', 
+                        color: 'transparent',
+                        textShadow: '0px 1px 3px rgba(0,0,0,0.15)'
+                    } },
+                    
+                    // Enhanced Gradient Text Effects
+                    { name: 'gold', label: 'Gold', preview: { background: 'linear-gradient(45deg, #ffd700, #ffed4e)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } },
+                    { name: 'silver', label: 'Silver', preview: { background: 'linear-gradient(45deg, #c0c0c0, #f5f5f5)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } },
+                    { name: 'chrome', label: 'Chrome', preview: { background: 'linear-gradient(45deg, #eee, #999, #eee)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } },
+                    { name: 'copper', label: 'Copper', preview: { background: 'linear-gradient(45deg, #b87333, #cd853f)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } },
+                    { name: 'rainbow', label: 'Rainbow', preview: { background: 'linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } },
+                    { name: 'dual-tone', label: 'Dual Tone', preview: { background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } },
+                    { name: 'fire-gradient', label: 'Fire Gradient', preview: { background: 'linear-gradient(45deg, #ff4500, #ffa500, #ff6347)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } },
+                    { name: 'ocean-gradient', label: 'Ocean', preview: { background: 'linear-gradient(45deg, #006994, #47b5ff, #82dce8)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } },
+                    { name: 'sunset', label: 'Sunset', preview: { background: 'linear-gradient(45deg, #ff7e5f, #feb47b, #ff6b6b)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } },
+                    { name: 'purple-dream', label: 'Purple Dream', preview: { background: 'linear-gradient(45deg, #667eea, #764ba2, #f093fb)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } },
+                    
+                    // Neon & Glow Effects
+                    { name: 'neon', label: 'Neon', preview: { textShadow: '0 0 5px #ff00ff, 0 0 10px #ff00ff, 0 0 15px #ff00ff' } },
+                    { name: 'neon-blue', label: 'Neon Blue', preview: { textShadow: '0 0 5px #00bfff, 0 0 10px #00bfff, 0 0 15px #00bfff' } },
+                    { name: 'neon-green', label: 'Neon Green', preview: { textShadow: '0 0 5px #00ff00, 0 0 10px #00ff00, 0 0 15px #00ff00' } },
+                    { name: 'fire', label: 'Fire', preview: { textShadow: '0 0 5px #ff4500, 0 0 10px #ff4500, 0 0 15px #ff4500' } },
+                    { name: 'ice', label: 'Ice', preview: { textShadow: '0 0 5px #00bfff, 0 0 10px #87ceeb, 0 0 15px #b0e0e6' } },
+                    { name: 'electric', label: 'Electric', preview: { color: '#ffff00', textShadow: '0 0 5px #ffff00, 0 0 10px #00ffff, 0 0 15px #ff00ff' } },
+                    { name: 'laser', label: 'Laser', preview: { textShadow: '0 0 10px #00ff00, 0 0 20px #00ff00, 0 0 30px #00ff00' } },
+                    { name: 'plasma', label: 'Plasma', preview: { textShadow: '0 0 8px #ff00ff, 0 0 16px #00ffff, 0 0 24px #ffff00' } },
+                    
+                    // Horror & Gothic
+                    { name: 'blood', label: 'Blood', preview: { color: '#8b0000', textShadow: '0 2px 5px #ff0000, 0 0 10px #8b0000' } },
+                    { name: 'gothic', label: 'Gothic', preview: { color: '#2c1810', textShadow: '1px 1px 0px #8b0000, 2px 2px 2px #000' } },
+                    { name: 'vampire', label: 'Vampire', preview: { background: 'linear-gradient(45deg, #8b0000, #dc143c)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent', textShadow: '0 0 10px #ff0000' } },
+                    { name: 'haunted', label: 'Haunted', preview: { color: '#2f2f2f', textShadow: '0 0 15px #800080, 2px 2px 4px #000' } },
+                    
+                    // 3D & Retro Effects
+                    { name: 'retro-3d', label: 'Retro 3D', preview: { textShadow: '1px 1px #ff6b6b, 2px 2px #4ecdc4, 3px 3px #45b7d1, 4px 4px #96ceb4' } },
+                    { name: 'neon-80s', label: 'Neon 80s', preview: { color: '#ff00ff', textShadow: '0 0 10px #ff00ff, 3px 3px 0px #00ffff' } },
+                    { name: 'vintage', label: 'Vintage', preview: { color: '#daa520', textShadow: '2px 2px 0px #8b4513, 4px 4px 0px #654321' } },
+                    { name: 'newspaper', label: 'Newspaper', preview: { color: '#000', textShadow: '1px 1px 0px #fff, 2px 2px 2px #ccc' } },
+                    { name: 'old-west', label: 'Old West', preview: { color: '#8b4513', textShadow: '2px 2px 0px #daa520, 4px 4px 4px #000' } },
+                    
+                    // Glitch & Digital
+                    { name: 'glitch', label: 'Glitch', preview: { textShadow: '2px 0 #ff0000, -2px 0 #00ffff, 0 0 #ff00ff' } },
+                    { name: 'digital', label: 'Digital', preview: { color: '#00ff00', textShadow: '0 0 5px #00ff00, 1px 1px 0px #008000' } },
+                    { name: 'matrix', label: 'Matrix', preview: { color: '#00ff41', textShadow: '0 0 10px #00ff41, 0 0 20px #00ff41' } },
+                    { name: 'cyberpunk', label: 'Cyberpunk', preview: { background: 'linear-gradient(45deg, #ff00ff, #00ffff)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent', textShadow: '0 0 15px #ff00ff' } },
+                    
+                    // Nature & Elements
+                    { name: 'stone', label: 'Stone', preview: { color: '#696969', textShadow: '2px 2px 0px #a9a9a9, 4px 4px 6px #2f2f2f' } },
+                    { name: 'wood', label: 'Wood', preview: { background: 'linear-gradient(45deg, #8b4513, #cd853f, #daa520)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } },
+                    { name: 'crystal', label: 'Crystal', preview: { background: 'linear-gradient(45deg, #e6f3ff, #cce7ff, #99d6ff)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent', textShadow: '0 0 10px rgba(153, 214, 255, 0.8)' } },
+                    { name: 'molten', label: 'Molten', preview: { background: 'linear-gradient(45deg, #ff6b35, #ff8e53, #ff6b35)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent', textShadow: '0 0 15px #ff4500' } },
+                    { name: 'toxic', label: 'Toxic', preview: { color: '#00ff00', textShadow: '0 0 10px #00ff00, 0 0 20px #39ff14, 2px 2px 5px #000' } },
+                    { name: 'cosmic', label: 'Cosmic', preview: { background: 'linear-gradient(45deg, #4b0082, #8a2be2, #9400d3)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent', textShadow: '0 0 15px #9400d3' } },
+                    
+                    // Advanced Effects
+                    { name: 'double-outline', label: 'Double Outline', preview: { textShadow: '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, -3px -3px 0 #fff, 3px -3px 0 #fff, -3px 3px 0 #fff, 3px 3px 0 #fff' } },
+                    { name: 'layered-shadow', label: 'Layered Shadow', preview: { textShadow: '1px 1px 0px #333, 2px 2px 0px #666, 3px 3px 0px #999, 4px 4px 0px #ccc' } },
+                    { name: 'perspective', label: 'Perspective', preview: { textShadow: '0px 1px 0px #ccc, 0px 2px 0px #c9c9c9, 0px 3px 0px #bbb, 0px 4px 0px #b9b9b9, 0px 5px 0px #aaa, 0px 6px 1px rgba(0,0,0,.1), 0px 0px 5px rgba(0,0,0,.1), 0px 1px 3px rgba(0,0,0,.3), 0px 3px 5px rgba(0,0,0,.2), 0px 5px 10px rgba(0,0,0,.25)' } },
+                    { name: 'textured', label: 'Textured', preview: { background: 'radial-gradient(circle, #ddd 1px, transparent 1px)', backgroundSize: '3px 3px', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } },
+                    { name: 'striped', label: 'Striped', preview: { background: 'repeating-linear-gradient(45deg, #ff6b6b, #ff6b6b 10px, #4ecdc4 10px, #4ecdc4 20px)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } },
+                    { name: 'holographic', label: 'Holographic', preview: { background: 'linear-gradient(45deg, #ff0080, #ff8c00, #40e0d0, #da70d6, #ff0080)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent', textShadow: '0 0 20px rgba(255,255,255,0.5)' } }
+                ];
+
+                const svgTextEffects = [
+                    // Fire & Energy Effects
+                    { name: 'svg-fire', label: 'Fire', preview: { color: '#ff4500', textShadow: '0 0 10px #ff4500' } },
+                    { name: 'svg-plasma', label: 'Plasma', preview: { color: '#ff00ff', textShadow: '0 0 15px #ff00ff' } },
+                    { name: 'svg-lightning', label: 'Lightning', preview: { color: '#ffff00', textShadow: '0 0 20px #ffff00' } },
+                    
+                    // 3D & Extrude Effects
+                    { name: 'svg-extrude', label: '3D Extrude', preview: { color: '#667eea', textShadow: '3px 3px 0px #333' } },
+                    { name: 'svg-deep-extrude', label: 'Deep Extrude', preview: { color: '#764ba2', textShadow: '5px 5px 0px #222' } },
+                    { name: 'svg-beveled-extrude', label: 'Beveled Extrude', preview: { color: '#4ecdc4', textShadow: '2px 2px 4px #000' } },
+                    
+                    // Distortion & Warping
+                    { name: 'svg-warped', label: 'Warped', preview: { color: '#ff6b6b', transform: 'skew(5deg)' } },
+                    { name: 'svg-displacement', label: 'Displacement', preview: { color: '#45b7d1', filter: 'blur(0.5px)' } },
+                    { name: 'svg-turbulence', label: 'Turbulence', preview: { color: '#96ceb4', filter: 'contrast(1.5)' } },
+                    
+                    // Texture & Material Effects
+                    { name: 'svg-stone', label: 'Stone', preview: { color: '#8b7355', textShadow: '2px 2px 4px #5d4e37' } },
+                    { name: 'svg-metal', label: 'Metal', preview: { color: '#c0c0c0', textShadow: '1px 1px 2px #808080' } },
+                    { name: 'svg-rust', label: 'Rust', preview: { color: '#b7410e', textShadow: '2px 2px 3px #8b4513' } },
+                    
+                    // Advanced Lighting
+                    { name: 'svg-multi-light', label: 'Multi Light', preview: { color: '#ffd700', textShadow: '0 0 10px #ffd700' } },
+                    { name: 'svg-specular', label: 'Specular', preview: { color: '#ffffff', textShadow: '0 0 15px #ffffff' } },
+                    { name: 'svg-rim-light', label: 'Rim Light', preview: { color: '#00bfff', textShadow: '0 0 12px #00bfff' } },
+                    
+                    // Glitch & Digital
+                    { name: 'svg-glitch', label: 'Glitch', preview: { color: '#ff0000', textShadow: '2px 0 #ff0000, -2px 0 #00ffff' } },
+                    { name: 'svg-chromatic', label: 'Chromatic', preview: { color: '#ff00ff', textShadow: '1px 0 #ff0000, -1px 0 #00ffff' } },
+                    { name: 'svg-datamosh', label: 'Datamosh', preview: { color: '#00ff00', filter: 'hue-rotate(45deg)' } },
+                    
+                    // Horror & Gothic
+                    { name: 'svg-blood-drip', label: 'Blood Drip', preview: { color: '#8b0000', textShadow: '0 3px 6px #ff0000' } },
+                    { name: 'svg-decay', label: 'Decay', preview: { color: '#654321', textShadow: '0 0 8px #8b4513' } },
+                    { name: 'svg-shadow-realm', label: 'Shadow Realm', preview: { color: '#2f2f2f', textShadow: '0 0 20px #800080' } },
+                    
+                    // Fantasy & Magic
+                    { name: 'svg-magic-aura', label: 'Magic Aura', preview: { color: '#9400d3', textShadow: '0 0 15px #9400d3' } },
+                    { name: 'svg-frost', label: 'Frost', preview: { color: '#b0e0e6', textShadow: '0 0 10px #87ceeb' } },
+                    { name: 'svg-molten-core', label: 'Molten Core', preview: { color: '#ff6347', textShadow: '0 0 18px #ff4500' } }
+                ];
+
+                const currentBackground = computed(() => {
+                    if (backgroundType.value === 'gradient') {
+                        return gradients[selectedGradient.value];
+                    } else if (backgroundType.value === 'premade') {
+                        return `url(${premadeImages[selectedImage.value]})`;
+                    } else if (backgroundType.value === 'custom' && customImage.value) {
+                        return `url(${customImage.value})`;
+                    }
+                    return gradients[0];
+                });
+
+                const selectGradient = (index) => {
+                    selectedGradient.value = index;
+                };
+
+                const selectImage = (index) => {
+                    selectedImage.value = index;
+                };
+
+                const handleCustomImage = (event) => {
+                    const file = event.target.files[0];
+                    if (file) {
+                        customImageName.value = file.name;
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            customImage.value = e.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                };
+
+                const addTextField = () => {
+                    const newId = 'text' + Date.now();
+                    textStyles.value[newId] = {
+                        fontSize: 24,
+                        fontWeight: 'normal',
+                        fontFamily: 'Playfair Display',
+                        color: '#ffffff',
+                        secondaryColor: '#ffd700',
+                        effect: 'shadow',
+                        effectType: 'css',
+                        shadowColor: '#000000',
+                        shadowSize: 3,
+                        allCaps: false,
+                        dropCap: false,
+                        position: { x: 150, y: 300 }
+                    };
+                    textContent.value[newId] = 'New Text';
+                    activeTextElement.value = newId;
+                };
+
+                const removeTextField = () => {
+                    if (Object.keys(textStyles.value).length <= 1) return;
+                    
+                    delete textStyles.value[activeTextElement.value];
+                    delete textContent.value[activeTextElement.value];
+                    
+                    // Switch to the first available text element
+                    activeTextElement.value = Object.keys(textStyles.value)[0];
+                };
+
+                const getTextContent = (key) => {
+                    return textContent.value[key] || '';
+                };
+
+                const updateTextContent = (key, value) => {
+                    textContent.value[key] = value;
+                };
+
+                const applyTextEffect = (effectName) => {
+                    if (styleAllElements.value) {
+                        Object.keys(textStyles.value).forEach(key => {
+                            textStyles.value[key].effect = effectName;
+                        });
+                    } else {
+                        textStyles.value[activeTextElement.value].effect = effectName;
+                    }
+                };
+
+                // SVG Functions
+                const generateSvg = (type, config = {}) => {
+                    const {
+                        primaryColor = '#667eea',
+                        secondaryColor = '#764ba2',
+                        size = 60
+                    } = config;
+
+                    switch (type) {
+                        case 'decorative-border':
+                            return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="10" y="10" width="80" height="80" fill="none" stroke="${primaryColor}" stroke-width="2"/>
+                                <circle cx="20" cy="20" r="3" fill="${secondaryColor}"/>
+                                <circle cx="80" cy="20" r="3" fill="${secondaryColor}"/>
+                                <circle cx="20" cy="80" r="3" fill="${secondaryColor}"/>
+                                <circle cx="80" cy="80" r="3" fill="${secondaryColor}"/>
+                                <path d="M30 10 L70 10 M90 30 L90 70 M70 90 L30 90 M10 70 L10 30" stroke="${secondaryColor}" stroke-width="1.5"/>
+                            </svg>`;
+
+                        case 'geometric-star':
+                            return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="starGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" style="stop-color:${primaryColor};stop-opacity:1" />
+                                        <stop offset="100%" style="stop-color:${secondaryColor};stop-opacity:1" />
+                                    </linearGradient>
+                                </defs>
+                                <polygon points="50,10 61,35 90,35 69,54 78,82 50,65 22,82 31,54 10,35 39,35" fill="url(#starGrad)" stroke="${primaryColor}" stroke-width="1"/>
+                            </svg>`;
+
+                        case 'art-deco-frame':
+                            return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <pattern id="decoPattern" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                                        <rect width="20" height="20" fill="${primaryColor}"/>
+                                        <polygon points="10,0 20,10 10,20 0,10" fill="${secondaryColor}"/>
+                                    </pattern>
+                                </defs>
+                                <rect x="5" y="5" width="90" height="90" fill="none" stroke="url(#decoPattern)" stroke-width="8"/>
+                                <rect x="15" y="15" width="70" height="70" fill="none" stroke="${primaryColor}" stroke-width="1"/>
+                            </svg>`;
+
+                        case 'celtic-knot':
+                            return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <g fill="none" stroke="${primaryColor}" stroke-width="3" stroke-linecap="round">
+                                    <path d="M20 50 Q30 20 50 30 Q70 20 80 50 Q70 80 50 70 Q30 80 20 50" fill="${secondaryColor}" opacity="0.7"/>
+                                    <path d="M50 20 Q80 30 70 50 Q80 70 50 80 Q20 70 30 50 Q20 30 50 20" fill="${primaryColor}" opacity="0.5"/>
+                                </g>
+                            </svg>`;
+
+                        case 'flourish-ornament':
+                            return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <g fill="${primaryColor}" stroke="${secondaryColor}" stroke-width="1">
+                                    <path d="M50 20 Q30 30 20 50 Q30 70 50 80 Q70 70 80 50 Q70 30 50 20"/>
+                                    <circle cx="50" cy="50" r="8" fill="${secondaryColor}"/>
+                                    <path d="M50 10 Q40 25 50 40 Q60 25 50 10" fill="${secondaryColor}"/>
+                                    <path d="M50 60 Q40 75 50 90 Q60 75 50 60" fill="${secondaryColor}"/>
+                                    <path d="M10 50 Q25 40 40 50 Q25 60 10 50" fill="${secondaryColor}"/>
+                                    <path d="M60 50 Q75 40 90 50 Q75 60 60 50" fill="${secondaryColor}"/>
+                                </g>
+                            </svg>`;
+
+                        case 'sacred-geometry':
+                            return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <g fill="none" stroke="${primaryColor}" stroke-width="1.5">
+                                    <circle cx="50" cy="50" r="35" stroke="${primaryColor}"/>
+                                    <circle cx="50" cy="50" r="25" stroke="${secondaryColor}"/>
+                                    <circle cx="50" cy="50" r="15" stroke="${primaryColor}"/>
+                                    <polygon points="50,15 73,35 73,65 50,85 27,65 27,35" stroke="${secondaryColor}" stroke-width="2"/>
+                                    <polygon points="50,25 65,37.5 65,62.5 50,75 35,62.5 35,37.5" stroke="${primaryColor}"/>
+                                </g>
+                            </svg>`;
+
+                        case 'vintage-corner':
+                            return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <g fill="${primaryColor}">
+                                    <path d="M10 10 L40 10 Q45 10 45 15 L45 40 Q45 45 40 45 L15 45 Q10 45 10 40 Z"/>
+                                    <circle cx="25" cy="25" r="3" fill="${secondaryColor}"/>
+                                    <path d="M20 35 Q25 30 30 35" stroke="${secondaryColor}" stroke-width="1.5" fill="none"/>
+                                    <path d="M35 20 Q30 25 35 30" stroke="${secondaryColor}" stroke-width="1.5" fill="none"/>
+                                </g>
+                            </svg>`;
+
+                        case 'mandala-circle':
+                            return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <g transform="translate(50,50)">
+                                    <circle r="35" fill="none" stroke="${primaryColor}" stroke-width="1"/>
+                                    <g stroke="${secondaryColor}" stroke-width="1.5" fill="none">
+                                        ${Array.from({length: 8}, (_, i) => {
+                                            const angle = (i * 45);
+                                            return `<g transform="rotate(${angle})">
+                                                <path d="M0,-25 Q10,-20 0,-15 Q-10,-20 0,-25"/>
+                                                <circle cx="0" cy="-30" r="2" fill="${secondaryColor}"/>
+                                            </g>`;
+                                        }).join('')}
+                                    </g>
+                                    <circle r="8" fill="${primaryColor}" stroke="${secondaryColor}" stroke-width="1"/>
+                                </g>
+                            </svg>`;
+
+                        case 'minimalist-lines':
+                            return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <g stroke="${primaryColor}" stroke-width="2" stroke-linecap="round">
+                                    <line x1="20" y1="50" x2="80" y2="50"/>
+                                    <line x1="30" y1="30" x2="70" y2="30" stroke="${secondaryColor}"/>
+                                    <line x1="30" y1="70" x2="70" y2="70" stroke="${secondaryColor}"/>
+                                    <circle cx="25" cy="50" r="2" fill="${primaryColor}"/>
+                                    <circle cx="75" cy="50" r="2" fill="${primaryColor}"/>
+                                </g>
+                            </svg>`;
+
+                        case 'gothic-cross':
+                            return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="crossGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" style="stop-color:${primaryColor};stop-opacity:1" />
+                                        <stop offset="100%" style="stop-color:${secondaryColor};stop-opacity:1" />
+                                    </linearGradient>
+                                </defs>
+                                <g fill="url(#crossGrad)" stroke="${primaryColor}" stroke-width="1">
+                                    <rect x="45" y="15" width="10" height="70"/>
+                                    <rect x="25" y="35" width="50" height="10"/>
+                                    <polygon points="50,15 45,10 55,10"/>
+                                    <polygon points="25,40 20,35 20,45"/>
+                                    <polygon points="75,40 80,35 80,45"/>
+                                    <polygon points="50,85 45,90 55,90"/>
+                                </g>
+                            </svg>`;
+
+                        case 'nature-leaf':
+                            return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" style="stop-color:${primaryColor};stop-opacity:1" />
+                                        <stop offset="100%" style="stop-color:${secondaryColor};stop-opacity:1" />
+                                    </linearGradient>
+                                </defs>
+                                <path d="M50 85 Q25 70 20 45 Q25 20 50 15 Q75 20 80 45 Q75 70 50 85" fill="url(#leafGrad)" stroke="${primaryColor}" stroke-width="1"/>
+                                <path d="M50 85 Q50 65 50 45 Q50 25 50 15" stroke="${secondaryColor}" stroke-width="2"/>
+                                <path d="M50 45 Q35 40 25 35" stroke="${secondaryColor}" stroke-width="1" fill="none"/>
+                                <path d="M50 45 Q65 40 75 35" stroke="${secondaryColor}" stroke-width="1" fill="none"/>
+                            </svg>`;
+
+                        case 'abstract-waves':
+                            return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" style="stop-color:${primaryColor};stop-opacity:0.8" />
+                                        <stop offset="50%" style="stop-color:${secondaryColor};stop-opacity:0.8" />
+                                        <stop offset="100%" style="stop-color:${primaryColor};stop-opacity:0.8" />
+                                    </linearGradient>
+                                </defs>
+                                <path d="M10 30 Q30 20 50 30 Q70 40 90 30" stroke="${primaryColor}" stroke-width="3" fill="none"/>
+                                <path d="M10 50 Q30 40 50 50 Q70 60 90 50" stroke="url(#waveGrad)" stroke-width="4" fill="none"/>
+                                <path d="M10 70 Q30 60 50 70 Q70 80 90 70" stroke="${secondaryColor}" stroke-width="3" fill="none"/>
+                            </svg>`;
+
+                        default:
+                            return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="50" cy="50" r="40" fill="${primaryColor}" stroke="${secondaryColor}" stroke-width="2"/>
+                            </svg>`;
+                    }
+                };
+
+                const addSvgElement = () => {
+                    if (!svgElements.value) {
+                        svgElements.value = {};
+                    }
+                    const newId = 'svg' + Date.now();
+                    const existingCount = Object.keys(svgElements.value).length;
+                    svgElements.value[newId] = {
+                        type: 'geometric-star',
+                        name: `SVG ${existingCount + 1}`,
+                        primaryColor: '#667eea',
+                        secondaryColor: '#764ba2',
+                        size: 60,
+                        rotation: 0,
+                        opacity: 100,
+                        position: { x: 150, y: 150 }
+                    };
+                    activeSvgElement.value = newId;
+                };
+
+                const removeSvgElement = () => {
+                    if (!svgElements.value || !activeSvgElement.value || Object.keys(svgElements.value).length === 0) return;
+                    
+                    delete svgElements.value[activeSvgElement.value];
+                    
+                    const remainingKeys = Object.keys(svgElements.value);
+                    activeSvgElement.value = remainingKeys.length > 0 ? remainingKeys[0] : '';
+                };
+
+                const updateSvgProperty = (property, value) => {
+                    if (!activeSvgElement.value || !svgElements.value || !svgElements.value[activeSvgElement.value]) {
+                        return;
+                    }
+                    svgElements.value[activeSvgElement.value][property] = value;
+                };
+
+                const getSvgStyle = (key) => {
+                    if (!svgElements.value || !svgElements.value[key]) {
+                        return {
+                            display: 'none'
+                        };
+                    }
+                    
+                    const svg = svgElements.value[key];
+
+                    return {
+                        left: `${svg.position.x}px`,
+                        top: `${svg.position.y}px`,
+                        transform: `translate(-50%, -50%) rotate(${svg.rotation}deg)`,
+                        opacity: svg.opacity / 100,
+                        width: `${svg.size}px`,
+                        height: `${svg.size}px`
+                    };
+                };
+
+                const getActiveStyle = computed(() => {
+                    return textStyles.value[activeTextElement.value];
+                });
+
+                const updateTextStyle = (property, value) => {
+                    if (styleAllElements.value) {
+                        Object.keys(textStyles.value).forEach(key => {
+                            if (property !== 'position') { // Don't update position for all elements
+                                textStyles.value[key][property] = value;
+                            }
+                        });
+                    } else {
+                        textStyles.value[activeTextElement.value][property] = value;
+                    }
+                };
+
+                const getTextStyle = (element) => {
+                    const style = textStyles.value[element];
+                    if (!style) return {};
+                    
+                    let computedStyle = {
+                        fontSize: `${style.fontSize}px`,
+                        fontWeight: style.fontWeight,
+                        fontFamily: `"${style.fontFamily}", serif`,
+                        left: `${style.position.x}px`,
+                        top: `${style.position.y}px`,
+                        transform: 'translate(-50%, -50%)'
+                    };
+
+                    // Apply SVG filter effects
+                    if (style.effectType === 'svg' && style.effect && style.effect.startsWith('svg-')) {
+                        computedStyle.filter = `url(#${style.effect})`;
+                        computedStyle.color = style.color;
+                        return computedStyle;
+                    }
+
+                    // Apply CSS effects (existing code)
+                    const effect = textEffects.find(e => e.name === style.effect);
+                    
+                    let textShadow = '';
+                    let background = '';
+                    let backgroundClip = '';
+                    let WebkitBackgroundClip = '';
+                    let color = style.color;
+                    let backgroundSize = '';
+
+                    switch (style.effect) {
+                        case 'shadow':
+                            textShadow = `${style.shadowSize}px ${style.shadowSize}px ${style.shadowSize * 2}px ${style.shadowColor}`;
+                            break;
+                        case 'outline':
+                            const size = Math.max(1, Math.floor(style.shadowSize / 2));
+                            textShadow = `-${size}px -${size}px 0 ${style.shadowColor}, ${size}px -${size}px 0 ${style.shadowColor}, -${size}px ${size}px 0 ${style.shadowColor}, ${size}px ${size}px 0 ${style.shadowColor}`;
+                            break;
+                        case 'glow':
+                            textShadow = `0 0 ${style.shadowSize * 2}px ${style.color}, 0 0 ${style.shadowSize * 4}px ${style.color}`;
+                            break;
+                        case 'dual-glow':
+                            textShadow = `0 0 ${style.shadowSize}px ${style.color}, 0 0 ${style.shadowSize * 2}px ${style.secondaryColor}, 0 0 ${style.shadowSize * 3}px ${style.color}`;
+                            break;
+                        case 'bevel-light':
+                            textShadow = `1px 1px 0px #fff, 2px 2px 1px #ccc, 0px 0px 1px ${style.shadowColor}`;
+                            break;
+                        case 'bevel-deep':
+                            textShadow = `1px 1px 0px #fff, 2px 2px 2px #888, 3px 3px 3px #666, 4px 4px 4px ${style.shadowColor}`;
+                            break;
+                        case 'bevel-metal':
+                            textShadow = `1px 1px 0px #e0e0e0, 2px 2px 1px #b0b0b0, 3px 3px 2px #808080, 4px 4px 3px ${style.shadowColor}`;
+                            break;
+                        case 'bevel-inset':
+                            textShadow = `-1px -1px 0px #fff, 1px 1px 0px ${style.shadowColor}`;
+                            break;
+                        case 'emboss':
+                            textShadow = `1px 1px 0 rgba(255,255,255,0.5), ${style.shadowSize}px ${style.shadowSize}px ${style.shadowSize}px ${style.shadowColor}`;
+                            break;
+                        case 'gold':
+                            background = 'linear-gradient(45deg, #ffd700, #ffed4e, #ffd700)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = `1px 1px 2px ${style.shadowColor}`;
+                            break;
+                        case 'silver':
+                            background = 'linear-gradient(45deg, #c0c0c0, #f5f5f5, #c0c0c0)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = `1px 1px 1px ${style.shadowColor}`;
+                            break;
+                        case 'chrome':
+                            background = 'linear-gradient(45deg, #eee, #999, #eee)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = `1px 1px 1px ${style.shadowColor}`;
+                            break;
+                        case 'copper':
+                            background = 'linear-gradient(45deg, #b87333, #cd853f, #b87333)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = `1px 1px 1px ${style.shadowColor}`;
+                            break;
+                        case 'rainbow':
+                            background = 'linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            break;
+                        case 'dual-tone':
+                            background = `linear-gradient(45deg, ${style.color}, ${style.secondaryColor})`;
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            break;
+                        case 'fire-gradient':
+                            background = 'linear-gradient(45deg, #ff4500, #ffa500, #ff6347)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = `0 0 ${style.shadowSize * 2}px #ff4500`;
+                            break;
+                        case 'ocean-gradient':
+                            background = 'linear-gradient(45deg, #006994, #47b5ff, #82dce8)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            break;
+                        case 'sunset':
+                            background = 'linear-gradient(45deg, #ff7e5f, #feb47b, #ff6b6b)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            break;
+                        case 'purple-dream':
+                            background = 'linear-gradient(45deg, #667eea, #764ba2, #f093fb)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            break;
+                        case 'neon':
+                            textShadow = `0 0 ${style.shadowSize}px #ff00ff, 0 0 ${style.shadowSize * 2}px #ff00ff, 0 0 ${style.shadowSize * 3}px #ff00ff`;
+                            break;
+                        case 'neon-blue':
+                            textShadow = `0 0 ${style.shadowSize}px #00bfff, 0 0 ${style.shadowSize * 2}px #00bfff, 0 0 ${style.shadowSize * 3}px #00bfff`;
+                            break;
+                        case 'neon-green':
+                            textShadow = `0 0 ${style.shadowSize}px #00ff00, 0 0 ${style.shadowSize * 2}px #00ff00, 0 0 ${style.shadowSize * 3}px #00ff00`;
+                            break;
+                        case 'fire':
+                            textShadow = `0 0 ${style.shadowSize}px #ff4500, 0 0 ${style.shadowSize * 2}px #ff4500, 0 0 ${style.shadowSize * 3}px #ff4500`;
+                            break;
+                        case 'ice':
+                            textShadow = `0 0 ${style.shadowSize}px #00bfff, 0 0 ${style.shadowSize * 2}px #87ceeb, 0 0 ${style.shadowSize * 3}px #b0e0e6`;
+                            break;
+                        case 'electric':
+                            color = '#ffff00';
+                            textShadow = `0 0 ${style.shadowSize}px #ffff00, 0 0 ${style.shadowSize * 2}px ${style.secondaryColor}, 0 0 ${style.shadowSize * 3}px #ff00ff`;
+                            break;
+                        case 'laser':
+                            textShadow = `0 0 ${style.shadowSize}px #00ff00, 0 0 ${style.shadowSize * 2}px #00ff00, 0 0 ${style.shadowSize * 3}px #00ff00`;
+                            break;
+                        case 'plasma':
+                            textShadow = `0 0 ${style.shadowSize}px ${style.color}, 0 0 ${style.shadowSize * 2}px ${style.secondaryColor}, 0 0 ${style.shadowSize * 3}px #ffff00`;
+                            break;
+                        case 'blood':
+                            color = '#8b0000';
+                            textShadow = `0 2px ${style.shadowSize}px #ff0000, 0 0 ${style.shadowSize * 2}px #8b0000`;
+                            break;
+                        case 'gothic':
+                            color = '#2c1810';
+                            textShadow = `1px 1px 0px #8b0000, 2px 2px 2px ${style.shadowColor}`;
+                            break;
+                        case 'vampire':
+                            background = 'linear-gradient(45deg, #8b0000, #dc143c)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = `0 0 ${style.shadowSize * 2}px #ff0000`;
+                            break;
+                        case 'haunted':
+                            color = '#2f2f2f';
+                            textShadow = `0 0 ${style.shadowSize * 3}px #800080, 2px 2px ${style.shadowSize}px ${style.shadowColor}`;
+                            break;
+                        case 'retro-3d':
+                            textShadow = `1px 1px ${style.color}, 2px 2px ${style.secondaryColor}, 3px 3px #45b7d1, 4px 4px #96ceb4`;
+                            break;
+                        case 'neon-80s':
+                            color = '#ff00ff';
+                            textShadow = `0 0 ${style.shadowSize * 2}px #ff00ff, 3px 3px 0px ${style.secondaryColor}`;
+                            break;
+                        case 'vintage':
+                            color = '#daa520';
+                            textShadow = `2px 2px 0px #8b4513, 4px 4px 0px #654321`;
+                            break;
+                        case 'newspaper':
+                            color = '#000';
+                            textShadow = `1px 1px 0px #fff, 2px 2px 2px #ccc`;
+                            break;
+                        case 'old-west':
+                            color = '#8b4513';
+                            textShadow = `2px 2px 0px #daa520, 4px 4px 4px ${style.shadowColor}`;
+                            break;
+                        case 'glitch':
+                            textShadow = `2px 0 ${style.color}, -2px 0 ${style.secondaryColor}, 0 0 #ff00ff`;
+                            break;
+                        case 'digital':
+                            color = '#00ff00';
+                            textShadow = `0 0 ${style.shadowSize}px #00ff00, 1px 1px 0px #008000`;
+                            break;
+                        case 'matrix':
+                            color = '#00ff41';
+                            textShadow = `0 0 ${style.shadowSize * 2}px #00ff41, 0 0 ${style.shadowSize * 4}px #00ff41`;
+                            break;
+                        case 'cyberpunk':
+                            background = `linear-gradient(45deg, ${style.color}, ${style.secondaryColor})`;
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = `0 0 ${style.shadowSize * 3}px ${style.color}`;
+                            break;
+                        case 'stone':
+                            color = '#696969';
+                            textShadow = `2px 2px 0px #a9a9a9, 4px 4px ${style.shadowSize}px #2f2f2f`;
+                            break;
+                        case 'wood':
+                            background = 'linear-gradient(45deg, #8b4513, #cd853f, #daa520)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = `1px 1px 1px ${style.shadowColor}`;
+                            break;
+                        case 'crystal':
+                            background = 'linear-gradient(45deg, #e6f3ff, #cce7ff, #99d6ff)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = `0 0 ${style.shadowSize * 2}px rgba(153, 214, 255, 0.8)`;
+                            break;
+                        case 'molten':
+                            background = 'linear-gradient(45deg, #ff6b35, #ff8e53, #ff6b35)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = `0 0 ${style.shadowSize * 3}px #ff4500`;
+                            break;
+                        case 'toxic':
+                            color = '#00ff00';
+                            textShadow = `0 0 ${style.shadowSize}px #00ff00, 0 0 ${style.shadowSize * 2}px #39ff14, 2px 2px ${style.shadowSize}px ${style.shadowColor}`;
+                            break;
+                        case 'cosmic':
+                            background = 'linear-gradient(45deg, #4b0082, #8a2be2, #9400d3)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = `0 0 ${style.shadowSize * 3}px #9400d3`;
+                            break;
+                        case 'double-outline':
+                            textShadow = `-2px -2px 0 ${style.shadowColor}, 2px -2px 0 ${style.shadowColor}, -2px 2px 0 ${style.shadowColor}, 2px 2px 0 ${style.shadowColor}, -3px -3px 0 ${style.secondaryColor}, 3px -3px 0 ${style.secondaryColor}, -3px 3px 0 ${style.secondaryColor}, 3px 3px 0 ${style.secondaryColor}`;
+                            break;
+                        case 'layered-shadow':
+                            textShadow = `1px 1px 0px ${style.color}, 2px 2px 0px ${style.secondaryColor}, 3px 3px 0px #999, 4px 4px 0px ${style.shadowColor}`;
+                            break;
+                        case 'perspective':
+                            textShadow = `0px 1px 0px #ccc, 0px 2px 0px #c9c9c9, 0px 3px 0px #bbb, 0px 4px 0px #b9b9b9, 0px 5px 0px #aaa, 0px 6px 1px rgba(0,0,0,.1), 0px 0px 5px rgba(0,0,0,.1), 0px 1px 3px rgba(0,0,0,.3), 0px 3px 5px rgba(0,0,0,.2), 0px 5px 10px rgba(0,0,0,.25)`;
+                            break;
+                        case 'textured':
+                            background = 'radial-gradient(circle, #ddd 1px, transparent 1px)';
+                            backgroundSize = '3px 3px';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            break;
+                        case 'striped':
+                            background = `repeating-linear-gradient(45deg, ${style.color}, ${style.color} 10px, ${style.secondaryColor} 10px, ${style.secondaryColor} 20px)`;
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            break;
+                        case 'holographic':
+                            background = `linear-gradient(45deg, ${style.color}, #ff8c00, #40e0d0, ${style.secondaryColor}, ${style.color})`;
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = '0 0 20px rgba(255,255,255,0.5)';
+                            break;
+                        // Add foil effects
+                        case 'gold-foil':
+                            background = 'linear-gradient(135deg, #ffd700 0%, #ffed4a 15%, #fff59d 30%, #ffd700 45%, #b8860b 60%, #ffd700 75%, #fff176 90%, #ffd700 100%)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = '0px 1px 2px rgba(0,0,0,0.3)';
+                            break;
+                        case 'silver-foil':
+                            background = 'linear-gradient(135deg, #c0c0c0 0%, #f5f5f5 15%, #e8e8e8 30%, #c0c0c0 45%, #a8a8a8 60%, #d3d3d3 75%, #f0f0f0 90%, #c0c0c0 100%)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = '0px 1px 2px rgba(0,0,0,0.2)';
+                            break;
+                        case 'copper-foil':
+                            background = 'linear-gradient(135deg, #b87333 0%, #cd853f 15%, #daa520 30%, #b87333 45%, #8b4513 60%, #cd853f 75%, #f4a460 90%, #b87333 100%)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = '0px 1px 2px rgba(0,0,0,0.3)';
+                            break;
+                        case 'rose-gold-foil':
+                            background = 'linear-gradient(135deg, #e6b8a2 0%, #f4c2a1 15%, #f7d794 30%, #e6b8a2 45%, #d4a574 60%, #f4c2a1 75%, #f9e79f 90%, #e6b8a2 100%)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = '0px 1px 2px rgba(0,0,0,0.2)';
+                            break;
+                        case 'platinum-foil':
+                            background = 'linear-gradient(135deg, #e5e4e2 0%, #f8f8ff 15%, #f5f5f5 30%, #e5e4e2 45%, #d3d3d3 60%, #f0f0f0 75%, #ffffff 90%, #e5e4e2 100%)';
+                            backgroundClip = 'text';
+                            WebkitBackgroundClip = 'text';
+                            color = 'transparent';
+                            textShadow = '0px 1px 3px rgba(0,0,0,0.15)';
+                            break;
+                        default:
+                            textShadow = `${style.shadowSize}px ${style.shadowSize}px ${style.shadowSize * 2}px ${style.shadowColor}`;
+                            break;
+                    }
+
+                    return {
+                        ...computedStyle,
+                        color,
+                        textShadow,
+                        background,
+                        backgroundClip,
+                        WebkitBackgroundClip,
+                        backgroundSize
+                    };
+                };
+
+                const startDrag = (event) => {
+                    const element = event.target.closest('.text-element, .svg-element');
+                    if (!element) return;
+                    
+                    const elementType = element.dataset.element;
+                    isDragging.value = elementType;
+                    
+                    const rect = element.getBoundingClientRect();
+                    const containerRect = coverPreview.value.getBoundingClientRect();
+                    
+                    dragOffset.value = {
+                        x: event.clientX - rect.left - rect.width / 2,
+                        y: event.clientY - rect.top - rect.height / 2
+                    };
+                    
+                    event.preventDefault();
+                };
+
+                const drag = (event) => {
+                    if (!isDragging.value) return;
+                    
+                    const containerRect = coverPreview.value.getBoundingClientRect();
+                    const x = event.clientX - containerRect.left - dragOffset.value.x;
+                    const y = event.clientY - containerRect.top - dragOffset.value.y;
+                    
+                    // Check if it's a text element or SVG element
+                    if (textStyles.value && textStyles.value[isDragging.value]) {
+                        textStyles.value[isDragging.value].position = {
+                            x: Math.max(50, Math.min(250, x)),
+                            y: Math.max(20, Math.min(430, y))
+                        };
+                    } else if (svgElements.value && svgElements.value[isDragging.value]) {
+                        svgElements.value[isDragging.value].position = {
+                            x: Math.max(30, Math.min(270, x)),
+                            y: Math.max(30, Math.min(420, y))
+                        };
+                    }
+                };
+
+                const stopDrag = () => {
+                    isDragging.value = null;
+                };
+
+                const downloadCover = async () => {
+                    const element = coverPreview.value;
+                    
+                    // Create a temporary high-resolution version
+                    const scale = 3; // 3x resolution for high quality
+                    const canvas = await html2canvas(element, {
+                        scale: scale,
+                        useCORS: true,
+                        allowTaint: true,
+                        backgroundColor: null,
+                        width: 300,
+                        height: 450
+                    });
+                    
+                    // Create download link
+                    const link = document.createElement('a');
+                    link.download = `book-cover-${Date.now()}.png`;
+                    link.href = canvas.toDataURL('image/png', 1.0);
+                    link.click();
+                };
+
+                onMounted(() => {
+                    // Initialize positions if needed
+                });
+
+                return {
+                    backgroundType,
+                    selectedGradient,
+                    selectedImage,
+                    customImage,
+                    customImageName,
+                    activeTextElement,
+                    styleAllElements,
+                    isDragging,
+                    coverPreview,
+                    gradients,
+                    premadeImages,
+                    textStyles,
+                    textContent,
+                    textEffects,
+                    svgTextEffects,
+                    svgElements,
+                    activeSvgElement,
+                    svgTypesArray,
+                    currentBackground,
+                    selectGradient,
+                    selectImage,
+                    handleCustomImage,
+                    applyTextEffect,
+                    getActiveStyle,
+                    updateTextStyle,
+                    getTextStyle,
+                    addTextField,
+                    removeTextField,
+                    getTextContent,
+                    updateTextContent,
+                    generateSvg,
+                    addSvgElement,
+                    removeSvgElement,
+                    updateSvgProperty,
+                    getSvgStyle,
+                    startDrag,
+                    drag,
+                    stopDrag,
+                    downloadCover
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

@@ -68,7 +68,7 @@ class Book(db.Model):
     user_id = Column(String(36), ForeignKey('users.user_id'), nullable=False)
     props = Column(JSON, nullable=False, default=dict)
     is_locked = Column(Boolean, default=False)
-    job = Column(String(36), nullable=True)  # Remove ForeignKey to avoid circular reference
+    job = Column(String(36), nullable=True)  # ID of job that locked this book; not a foreignkey to avoid circular ref
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
     
@@ -119,20 +119,21 @@ class Chunk(db.Model):
     chunk_id = Column(String(36), nullable=False, default=generate_uuid)
     version = Column(Integer, nullable=False, default=1)
     is_latest = Column(Boolean, default=True)
+    locked_by_job_id = Column(String(36), nullable=True) # this should probably be called "job" to match the one on book, but it isn't
     props = Column(JSON, nullable=False, default=dict)
     text = Column(Text, nullable=True)
     type = Column(String(50), nullable=True)
     is_locked = Column(Boolean, default=False)
     is_deleted = Column(Boolean, default=False)
-    job = Column(String(36), nullable=True)  # Remove ForeignKey to avoid circular reference
     _order = Column('order', Float, nullable=True)
     chapter = Column(Integer, nullable=True)
     word_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
-
+    
     # Relationships
     book = relationship("Book", back_populates="chunks")
+    jobs = relationship("Job", back_populates="chunk")
 
     def __init__(self, **kwargs):
         # Handle 'order' parameter by mapping it to '_order'
@@ -155,14 +156,8 @@ class Chunk(db.Model):
         self._order = value
 
     # Indexes
-    __table_args__ = (
-        Index('idx_chunk_book_id', 'book_id'),
-        Index('idx_chunk_chunk_id', 'chunk_id'),
-        Index('idx_chunk_is_latest', 'is_latest'),
-        Index('idx_chunk_is_deleted', 'is_deleted'),
-        Index('idx_chunk_chapter', 'chapter'),
-    )
-    
+    __table_args__ = (db.Index('ix_chunks_book_id_type_is_latest', 'book_id', 'type', 'is_latest'), db.UniqueConstraint('chunk_id', 'version', name='uq_chunk_id_version'))
+
     def to_dict(self, include_text: bool = False) -> Dict[str, Any]:
         """Convert chunk to dictionary."""
         result = {
@@ -171,11 +166,11 @@ class Chunk(db.Model):
             'chunk_id': self.chunk_id,
             'version': self.version,
             'is_latest': self.is_latest,
+            'locked_by_job_id': self.locked_by_job_id,
             'props': self.props,
             'type': self.type,
             'is_locked': self.is_locked,
             'is_deleted': self.is_deleted,
-            'job': self.job,
             'order': self.order,
             'chapter': self.chapter,
             'word_count': self.word_count,
@@ -235,6 +230,7 @@ class Job(db.Model):
     
     job_id = Column(String(36), primary_key=True, default=generate_uuid)
     book_id = Column(String(36), ForeignKey('books.book_id'), nullable=False)
+    chunk_id = Column(String(36), ForeignKey('chunks.chunk_id'), nullable=True)
     job_type = Column(String(50), nullable=False)
     props = Column(MutableDict.as_mutable(JSON), nullable=False, default=dict)
     state = Column(String(20), nullable=False, default='waiting')  # waiting, running, complete, error, cancelled
@@ -245,11 +241,13 @@ class Job(db.Model):
     
     # Relationships
     book = relationship("Book", back_populates="jobs")
+    chunk = relationship("Chunk", back_populates="jobs")
     logs = relationship("JobLog", back_populates="job", cascade="all, delete-orphan")
     
     # Indexes
     __table_args__ = (
         Index('idx_job_book_id', 'book_id'),
+        Index('idx_job_chunk_id', 'chunk_id'),
         Index('idx_job_state', 'state'),
         Index('idx_job_type', 'job_type'),
     )
@@ -270,6 +268,7 @@ class Job(db.Model):
         return {
             'job_id': self.job_id,
             'book_id': self.book_id,
+            'chunk_id': self.chunk_id,
             'job_type': self.job_type,
             'props': self.props,
             'state': self.state,

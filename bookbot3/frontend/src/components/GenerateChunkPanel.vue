@@ -42,7 +42,7 @@
             :key="bot.chunk_id" 
             :value="bot.chunk_id"
           >
-            {{ bot.props.name }} ({{ bot.props.llm_alias }})
+            {{ bot.props?.name || 'Untitled Bot' }}
           </option>
         </select>
         <div v-if="bots.length === 0" class="no-bots-message">

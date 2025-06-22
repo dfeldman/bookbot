@@ -5,7 +5,7 @@ This module defines the data models for LLM configuration and selection.
 """
 from enum import Enum
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class LLMGroup(str, Enum):
@@ -34,8 +34,8 @@ class LLMInfo(BaseModel):
     groups: List[str] = Field(description="List of valid LLM groups for this model")
     quality_score: int = Field(description="Quality score from 1 to 10")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "anthropic/claude-3-haiku",
                 "input_cost_per_mtok": 1.25,
@@ -50,6 +50,7 @@ class LLMInfo(BaseModel):
                 "quality_score": 8
             }
         }
+    )
 
 
 class LLMDefaults(BaseModel):

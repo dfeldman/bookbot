@@ -9,10 +9,10 @@ import os
 import tempfile
 import yaml
 import pytest
-from unittest.mock import patch, mock_open
+from unittest.mock import MagicMock, patch, mock_open
 
 from backend.models import db, Book, Chunk, User
-from backend.jobs.create_foundation import _initialize_default_bots
+from backend.jobs.create_foundation import _initialize_default_bots, _initialize_default_bot_tasks
 from app import create_app
 
 
@@ -56,17 +56,15 @@ class TestBotInitialization:
             'bots': [
                 {
                     'name': 'Test Writer Bot',
-                    'llm_alias': 'Writer',
                     'description': 'A test writing bot',
-                    'system_prompt': 'You are a test writing assistant.',
+                    'content': 'You are a test writing assistant.',
                     'temperature': 0.7,
                     'order': 0
                 },
                 {
                     'name': 'Test Creative Bot',
-                    'llm_alias': 'Thinker',
                     'description': 'A test creative bot',
-                    'system_prompt': 'You are a test creative assistant.',
+                    'content': 'You are a test creative assistant.',
                     'temperature': 0.9,
                     'order': 1,
                     'custom_field': 'custom_value'
@@ -108,18 +106,18 @@ class TestBotInitialization:
                 
                 # Verify first bot properties
                 writer_bot = next(bot for bot in bots if bot.props.get('name') == 'Test Writer Bot')
-                assert writer_bot.props['llm_alias'] == 'Writer'
                 assert writer_bot.props['description'] == 'A test writing bot'
-                assert writer_bot.props['system_prompt'] == 'You are a test writing assistant.'
+                assert writer_bot.text == 'You are a test writing assistant.'
                 assert writer_bot.props['temperature'] == 0.7
                 assert writer_bot.order == 0.0
                 assert writer_bot.type == 'bot'
-                assert writer_bot.text == ''
                 assert writer_bot.chapter is None
                 
                 # Verify second bot properties (including custom field)
                 creative_bot = next(bot for bot in bots if bot.props.get('name') == 'Test Creative Bot')
-                assert creative_bot.props['llm_alias'] == 'Thinker'
+                assert creative_bot.props['description'] == 'A test creative bot'
+                assert creative_bot.text == 'You are a test creative assistant.'
+                assert creative_bot.props['temperature'] == 0.9
                 assert creative_bot.props['custom_field'] == 'custom_value'
                 assert creative_bot.order == 1.0
     
@@ -226,9 +224,7 @@ class TestBotInitialization:
                 
                 bot = Chunk.query.filter_by(book_id='test-book-123', type='bot').first()
                 assert bot.props['name'] == 'Minimal Bot'
-                assert bot.props['llm_alias'] == 'Writer'  # Default value
-                assert bot.props['description'] == ''  # Default value
-                assert bot.props['system_prompt'] == ''  # Default value
+                assert bot.text == ''  # Default value
                 assert bot.props['temperature'] == 0.7  # Default value
                 assert bot.order == 0.0  # Default order (bot_count = 0)
     
@@ -319,7 +315,7 @@ class TestBotInitialization:
                 {
                     'name': 'Café Bot 🤖',
                     'description': 'Un bot qui parle français',
-                    'system_prompt': 'You are a multilingual assistant. 你好! ¡Hola!'
+                    'content': 'You are a multilingual assistant. 你好! ¡Hola!'
                 }
             ]
         }
@@ -337,8 +333,8 @@ class TestBotInitialization:
                 bot = Chunk.query.filter_by(book_id='test-book-123', type='bot').first()
                 assert bot.props['name'] == 'Café Bot 🤖'
                 assert bot.props['description'] == 'Un bot qui parle français'
-                assert '你好' in bot.props['system_prompt']
-                assert '¡Hola!' in bot.props['system_prompt']
+                assert '你好' in bot.text
+                assert '¡Hola!' in bot.text
 
 
 class TestBotInitializationIntegration:
@@ -386,8 +382,7 @@ class TestBotInitializationIntegration:
             simple_config = {
                 'bots': [
                     {
-                        'name': 'Foundation Test Bot',
-                        'llm_alias': 'Writer'
+                        'name': 'Foundation Test Bot'
                     }
                 ]
             }
@@ -403,10 +398,31 @@ class TestBotInitializationIntegration:
                  patch('backend.jobs.create_foundation.get_bot_manager') as mock_bot_manager:
                 
                 # Mock bot manager methods
-                mock_bot_manager.return_value.add_scene_ids.return_value = ('Tagged outline', ['scene1', 'scene2'])
-                mock_bot_manager.return_value.extract_scenes_from_outline.return_value = [
-                    {'scene_id': 'scene1', 'title': 'Scene 1', 'chapter': 1, 'order': 1.0, 'tags': []}
-                ]
+                def mock_get_llm_call_side_effect(task_id, *args, **kwargs):
+                    mock_llm = MagicMock()
+                    mock_llm.execute.return_value = True
+                    if task_id == 'create_outline':
+                        mock_llm.output_text = '## Chapter 1\n\n### Scene: Test'
+                        mock_llm.cost = 0.01
+                    elif task_id == 'create_characters':
+                        mock_llm.output_text = 'Character text'
+                        mock_llm.cost = 0.02
+                    elif task_id == 'create_settings':
+                        mock_llm.output_text = 'Settings text'
+                        mock_llm.cost = 0.03
+                    elif task_id == 'tag_content':
+                        mock_llm.output_text = kwargs.get('template_vars', {}).get('content', '')
+                        mock_llm.cost = 0.005
+                    else:
+                        mock_llm.execute.return_value = False
+                        mock_llm.output_text = ''
+                        mock_llm.cost = 0.0
+                    return mock_llm
+
+                mock_bot_manager.return_value.get_llm_call.side_effect = mock_get_llm_call_side_effect
+                # Ensure add_scene_ids returns a valid structure
+                mock_bot_manager.return_value.add_scene_ids.return_value = ('## Chapter 1\n\n### Scene: Test [[Scene 1]]', [{'outline_section_id': 1, 'chapter': 1, 'scene_title': 'Test'}])
+                mock_bot_manager.return_value.remove_scene_ids.return_value = '## Chapter 1\n\n### Scene: Test'
                 
                 log_messages = []
                 def log_callback(message):
@@ -428,12 +444,91 @@ class TestBotInitializationIntegration:
                 # Verify bot initialization was called
                 assert any('Step 13: Initializing default bots' in msg for msg in log_messages)
                 assert any('Created bot: Foundation Test Bot' in msg for msg in log_messages)
-                assert any('Created 1 default bot chunks' in msg for msg in log_messages)
+                assert any('Initialized 1 default bots' in msg for msg in log_messages)
                 
                 # Verify bot was actually created
                 bots = Chunk.query.filter_by(book_id='test-book-123', type='bot').all()
                 assert len(bots) == 1
                 assert bots[0].props['name'] == 'Foundation Test Bot'
+
+
+class TestBotTaskInitialization:
+    """Test suite for bot task initialization from YAML configuration."""
+
+    @pytest.fixture
+    def app(self):
+        """Create test Flask app with in-memory database."""
+        app = create_app()
+        app.config['TESTING'] = True
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+        
+        with app.app_context():
+            db.create_all()
+            
+            # Create test user and book
+            user = User(user_id='test-user-456')
+            db.session.add(user)
+            book = Book(book_id='test-book-456', user_id='test-user-456')
+            db.session.add(book)
+            db.session.commit()
+            
+            yield app
+            
+            db.drop_all()
+
+    @pytest.fixture
+    def sample_bottask_config(self):
+        """Sample bot task configuration for testing."""
+        return {
+            'bottasks': [
+                {
+                    'name': 'Draft Scene Task',
+                    'llm_group': 'writer',
+                    'applicable_jobs': ['generate_chunk'],
+                    'content': 'Write a draft for the scene.',
+                    'order': 0
+                },
+                {
+                    'name': 'Review Scene Task',
+                    'llm_group': 'editor',
+                    'applicable_jobs': ['review_chunk'],
+                    'content': 'Review the scene for errors.',
+                    'order': 1
+                }
+            ]
+        }
+
+    @pytest.fixture
+    def log_messages(self):
+        """Fixture to capture log messages."""
+        messages = []
+        def log_callback(message):
+            messages.append(message)
+        return messages, log_callback
+
+    def test_initialize_bot_tasks_success(self, app, sample_bottask_config, log_messages):
+        """Test successful bot task initialization from YAML."""
+        messages, log_callback = log_messages
+        
+        with app.app_context():
+            yaml_content = yaml.dump(sample_bottask_config)
+            
+            with patch('os.path.exists', return_value=True), \
+                 patch('builtins.open', mock_open(read_data=yaml_content)):
+                
+                task_count = _initialize_default_bot_tasks('test-book-456', log_callback)
+                
+                assert task_count == 2
+                assert any('Created bot task: Draft Scene Task' in msg for msg in messages)
+                
+                tasks = Chunk.query.filter_by(book_id='test-book-456', type='bot_task').all()
+                assert len(tasks) == 2
+                
+                draft_task = next(task for task in tasks if task.props.get('name') == 'Draft Scene Task')
+                assert draft_task.props['llm_group'] == 'writer'
+                assert draft_task.props['applicable_jobs'] == ['generate_chunk']
+                assert draft_task.text == 'Write a draft for the scene.'
+                assert draft_task.order == 0.0
 
 
 if __name__ == '__main__':

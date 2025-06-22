@@ -20,7 +20,7 @@
               v-for="chunk in botChunks" 
               :key="chunk.chunk_id"
               @click="selectChunk(chunk)"
-              :class="{ 'active': selectedChunk?.chunk_id === chunk.chunk_id }"
+
             >
               {{ chunk.props.name || 'Untitled Bot' }}
             </li>
@@ -39,7 +39,7 @@
               v-for="chunk in botTaskChunks" 
               :key="chunk.chunk_id"
               @click="selectChunk(chunk)"
-              :class="{ 'active': selectedChunk?.chunk_id === chunk.chunk_id }"
+
             >
               {{ chunk.props.name || 'Untitled Task' }}
             </li>
@@ -48,34 +48,22 @@
       </div>
     </div>
 
-    <!-- Right Panel: Editor -->
-    <div class="editor-panel">
-      <div v-if="!selectedChunk" class="editor-placeholder">
-        <p>Select a bot or task to begin editing.</p>
-      </div>
-      <div v-else class="editor-container">
-        <BotEditor v-if="selectedChunk.type === 'bot'" v-model="selectedChunk" @update:modelValue="handleChunkUpdate" />
-        <BotTaskEditor v-else-if="selectedChunk.type === 'bot_task'" v-model="selectedChunk" @update:modelValue="handleChunkUpdate" />
-      </div>
-    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
 import { apiService } from '../services/api'
 import type { Chunk } from '../stores/book'
-import BotEditor from './BotEditor.vue'
-import BotTaskEditor from './BotTaskEditor.vue'
 
 const route = useRoute()
+const router = useRouter()
 const bookStore = useBookStore()
 
 const loading = ref(false)
-const selectedChunk = ref<Chunk | null>(null)
-let autoSaveTimer: number | null = null
 
 const botChunks = computed(() => bookStore.chunks.filter(c => c.type === 'bot'))
 const botTaskChunks = computed(() => bookStore.chunks.filter(c => c.type === 'bot_task'))
@@ -91,15 +79,10 @@ onMounted(async () => {
   }
 })
 
-onBeforeUnmount(() => {
-  if (autoSaveTimer) {
-    clearTimeout(autoSaveTimer)
-  }
-})
+
 
 function selectChunk(chunk: Chunk) {
-  // Deep copy to prevent direct mutation before save
-  selectedChunk.value = JSON.parse(JSON.stringify(chunk))
+  router.push(`/books/${route.params.bookId}/chunks/${chunk.chunk_id}/edit`)
 }
 
 async function createChunk(type: 'bot' | 'bot_task') {
@@ -130,42 +113,13 @@ async function createChunk(type: 'bot' | 'bot_task') {
 const createBot = () => createChunk('bot')
 const createBotTask = () => createChunk('bot_task')
 
-function handleChunkUpdate(updatedChunk: Chunk) {
-  selectedChunk.value = updatedChunk
-  if (autoSaveTimer) {
-    clearTimeout(autoSaveTimer)
-  }
-  autoSaveTimer = window.setTimeout(() => {
-    saveSelectedChunk()
-  }, 1000) // 1 second delay
-}
 
-async function saveSelectedChunk() {
-  if (!selectedChunk.value) return
-
-  try {
-    const chunkToSave = selectedChunk.value
-    const updated = await apiService.updateChunk(chunkToSave.chunk_id, {
-      text: chunkToSave.text,
-      props: chunkToSave.props,
-      type: chunkToSave.type, // Ensure type is preserved
-    })
-    
-    // Update the chunk in the store without a full reload
-    bookStore.updateChunkInStore(updated)
-
-  } catch (error) {
-    console.error('Failed to save chunk:', error)
-    // Optionally show a save error to the user
-  }
-}
 
 </script>
 
 <style scoped>
 .bot-manager-layout {
-  display: flex;
-  height: calc(100vh - 200px); /* Adjust based on header/footer height */
+  height: auto;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
@@ -173,10 +127,8 @@ async function saveSelectedChunk() {
 }
 
 .list-panel {
-  width: 300px;
-  flex-shrink: 0;
+  width: 100%;
   background: #ffffff;
-  border-right: 1px solid #e2e8f0;
   overflow-y: auto;
   padding: 1rem;
 }
@@ -248,23 +200,7 @@ async function saveSelectedChunk() {
   font-size: 0.875rem;
 }
 
-.editor-panel {
-  flex-grow: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
 
-.editor-placeholder {
-  text-align: center;
-  color: #94a3b8;
-}
-
-.editor-container {
-  width: 100%;
-  height: 100%;
-}
 
 .loading-state {
   display: flex;

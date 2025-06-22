@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { useBookStore } from './book'
 import { apiService } from '../services/api'
 import type { Job } from '@/stores/types.ts' // Assuming you have a Job type defined, adjust if necessary
 
 const POLLING_INTERVAL = 2000 // 2 seconds
 
 export const useJobStore = defineStore('jobStore', () => {
+  const bookStore = useBookStore()
   const globalRunningJobs = ref<Job[]>([])
   const allJobs = ref<Job[]>([]) // For JobsViewer
   const currentJobDetails = ref<Job | null>(null) // For JobDetailsViewer
@@ -17,6 +19,19 @@ export const useJobStore = defineStore('jobStore', () => {
   const error = ref<string | null>(null)
   const showStartingIndicator = ref(false)
   let pollIntervalId: number | null = null
+
+  watch(globalRunningJobs, (newJobs, oldJobs) => {
+    if (oldJobs.length > newJobs.length) {
+      const completedJobs = oldJobs.filter(oldJob => !newJobs.some(newJob => newJob.job_id === oldJob.job_id));
+      
+      for (const job of completedJobs) {
+        if (job.job_type === 'GenerateChunk' && job.props?.input_chunk_id) {
+          console.log(`Job ${job.job_id} for chunk ${job.props.input_chunk_id} completed. Refreshing chunk.`);
+          bookStore.refreshChunk(job.props.input_chunk_id);
+        }
+      }
+    }
+  });
 
   async function fetchGlobalRunningJobs() {
     isLoading.value = true

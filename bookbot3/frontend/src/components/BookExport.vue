@@ -204,7 +204,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { Chunk } from '../stores/book'
+import type { Chunk } from '../stores/types'
 
 interface Props {
   chunks: Chunk[]
@@ -236,7 +236,7 @@ const exportFormats = [
     description: 'Web-friendly format, great for sharing online'
   },
   {
-    id: 'markdown',
+    id: 'scene',
     name: 'Markdown',
     icon: '📝',
     description: 'Plain text with formatting, perfect for editing'
@@ -266,7 +266,7 @@ const availableChapters = computed(() => {
   const chapters = new Set<number>()
   props.chunks.forEach(chunk => {
     if (!chunk.is_deleted) {
-      chapters.add(chunk.chapter || 0)
+      chapters.add(chunk.props?.chapter || 0)
     }
   })
   return Array.from(chapters).sort((a, b) => a - b)
@@ -288,20 +288,20 @@ const chunksToExport = computed(() => {
     const start = Math.min(chapterRangeStart.value, chapterRangeEnd.value)
     const end = Math.max(chapterRangeStart.value, chapterRangeEnd.value)
     chunks = chunks.filter(chunk => {
-      const chapterNum = chunk.chapter || 0
+      const chapterNum = chunk.props?.chapter || 0
       return chapterNum >= start && chapterNum <= end
     })
   } else if (chapterSelection.value === 'specific') {
     chunks = chunks.filter(chunk => 
-      selectedChapters.value.includes(chunk.chapter || 0)
+      selectedChapters.value.includes(chunk.props?.chapter || 0)
     )
   }
   
   return chunks.sort((a, b) => {
-    if (a.chapter !== b.chapter) {
-      return (a.chapter || 0) - (b.chapter || 0)
+    if (a.props?.chapter !== b.props?.chapter) {
+      return (a.props?.chapter || 0) - (b.props?.chapter || 0)
     }
-    return (a.order || 0) - (b.order || 0)
+    return (a.props?.order || 0) - (b.props?.order || 0)
   })
 })
 
@@ -321,7 +321,7 @@ const exportStats = computed(() => {
 
 const canExport = computed(() => {
   return chunksToExport.value.length > 0 && 
-         (selectedFormat.value === 'html' || selectedFormat.value === 'markdown' || selectedFormat.value === 'txt')
+         (selectedFormat.value === 'html' || selectedFormat.value === 'scene' || selectedFormat.value === 'txt')
 })
 
 // Methods
@@ -341,7 +341,7 @@ function generateExportContent(): string {
         <h1>${props.book.props?.name || 'Untitled Book'}</h1>
         ${props.book.props?.description ? `<p class="description">${props.book.props.description}</p>` : ''}
       </div>\n\n`
-    } else if (selectedFormat.value === 'markdown') {
+    } else if (selectedFormat.value === 'scene') {
       content += `# ${props.book.props?.name || 'Untitled Book'}\n\n`
       if (props.book.props?.description) {
         content += `${props.book.props.description}\n\n`
@@ -357,7 +357,7 @@ function generateExportContent(): string {
   // Group chunks by chapter
   const chapterGroups = new Map<number, Chunk[]>()
   chunks.forEach(chunk => {
-    const chapterNum = chunk.chapter || 0
+    const chapterNum = chunk.props?.chapter || 0
     if (!chapterGroups.has(chapterNum)) {
       chapterGroups.set(chapterNum, [])
     }
@@ -370,7 +370,7 @@ function generateExportContent(): string {
     if (includeChapterHeadings.value && chapterNum > 0) {
       if (selectedFormat.value === 'html') {
         content += `<h2>Chapter ${chapterNum}</h2>\n\n`
-      } else if (selectedFormat.value === 'markdown') {
+      } else if (selectedFormat.value === 'scene') {
         content += `## Chapter ${chapterNum}\n\n`
       } else {
         content += `Chapter ${chapterNum}\n${'='.repeat(20)}\n\n`
@@ -383,7 +383,7 @@ function generateExportContent(): string {
       if (includeSceneTitles.value && chunk.props?.scene_title) {
         if (selectedFormat.value === 'html') {
           content += `<h3>${chunk.props.scene_title}</h3>\n`
-        } else if (selectedFormat.value === 'markdown') {
+        } else if (selectedFormat.value === 'scene') {
           content += `### ${chunk.props.scene_title}\n\n`
         } else {
           content += `${chunk.props.scene_title}\n${'-'.repeat(chunk.props.scene_title.length)}\n\n`
@@ -439,7 +439,7 @@ async function exportBook() {
         filename = `${sanitizedName}.html`
         mimeType = 'text/html'
         break
-      case 'markdown':
+      case 'scene':
         filename = `${sanitizedName}.md`
         mimeType = 'text/markdown'
         break

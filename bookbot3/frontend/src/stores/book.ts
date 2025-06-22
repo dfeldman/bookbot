@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/api'
 import { useJobStore } from './jobStore'
-import type { Job, Book, Chunk, ContextData } from './types'
+import type { Job, Book, Chunk, ContextData, LLMInfo } from './types'
 
 export const useBookStore = defineStore('book', () => {
   const jobStore = useJobStore() // Get instance of jobStore
@@ -12,6 +12,9 @@ export const useBookStore = defineStore('book', () => {
   const chunks = ref<Chunk[]>([])
   const jobs = ref<Job[]>([])
   const bots = ref<Chunk[]>([])
+  const tasks = ref<Chunk[]>([])
+  const llms = ref<LLMInfo[]>([])
+  const llmDefaults = ref<any>(null) // Consider creating a type for this
   const currentJob = ref<Job | null>(null)
   const isLoading = ref(false)
   const sceneContext = ref<ContextData | null>(null)
@@ -222,6 +225,32 @@ export const useBookStore = defineStore('book', () => {
     }
   }
 
+  async function loadTasks(bookId: string) {
+    try {
+      const response = await apiService.getChunks(bookId, { type: 'bot_task' })
+      tasks.value = response.chunks
+    } catch (error) {
+      console.error('Failed to load tasks:', error)
+    }
+  }
+
+  async function loadLlmCatalog() {
+    try {
+      const response = await apiService.getLlmCatalog()
+      llms.value = response.llms
+    } catch (error) {
+      console.error('Failed to load LLM catalog:', error)
+    }
+  }
+
+  async function loadLlmDefaults(bookId: string) {
+    try {
+      llmDefaults.value = await apiService.getLlmDefaults(bookId)
+    } catch (error) {
+      console.error('Failed to load LLM defaults:', error)
+    }
+  }
+
     async function fetchSceneContext(chunkId: string) {
     if (!currentBook.value) {
       contextError.value = 'Cannot fetch context without a loaded book.'
@@ -280,31 +309,54 @@ export const useBookStore = defineStore('book', () => {
   }
 
   async function startSceneGeneration(chunkId: string, botId: string, mode: string, options: Record<string, any>): Promise<Job> {
+    const chunk = await apiService.getChunk(chunkId)
+    const bookId = chunk.book_id
+
+    const jobPayload = {
+      job_type: 'GenerateChunk',
+      props: {
+        input_chunk_id: chunkId,
+        bot_chunk_id: botId,
+        mode: mode,
+        ...options
+      }
+    }
+    const job = await apiService.createJob(bookId, jobPayload)
+
+    // Optimistically lock the chunk in the UI
+    const localChunk = chunks.value.find(c => c.chunk_id === chunkId);
+    if (localChunk) {
+      localChunk.is_locked = true;
+    }
+
+    jobStore.triggerStartingIndicator()
+    jobs.value.push(job)
+    currentJob.value = job
+    return job
+  }
+
+  const updateChunk = async (chunk: Chunk) => {
+    if (!currentBook.value) return;
     try {
-      const chunk = await apiService.getChunk(chunkId);
-      const bookId = chunk.book_id;
-
-      const jobPayload = {
-        job_type: 'GenerateChunk',
-        props: {
-          input_chunk_id: chunkId,
-          bot_chunk_id: botId,
-          mode: mode,
-          ...options
-        }
-      };
-      const job = await apiService.createJob(bookId, jobPayload);
-      
-      jobStore.triggerStartingIndicator();
-      jobs.value.push(job);
-      currentJob.value = job;
-
-      return job;
+      const updatedChunk = await apiService.updateChunk(chunk.chunk_id, chunk);
+      updateChunkInStore(updatedChunk)
+      return updatedChunk;
     } catch (error) {
-      console.error('Failed to start scene generation job:', error);
+      console.error('Failed to update chunk:', error);
       throw error;
     }
-  }
+  };
+
+  const fetchChunk = async (chunkId: string) => {
+    try {
+      const chunk = await apiService.getChunk(chunkId);
+      updateChunkInStore(chunk)
+      return chunk;
+    } catch (error) {
+      console.error(`Failed to fetch chunk ${chunkId}:`, error);
+      throw error;
+    }
+  };
 
   async function fetchVersions(chunkId: string) {
     isVersionsLoading.value = true
@@ -356,6 +408,9 @@ export const useBookStore = defineStore('book', () => {
     chunks,
     jobs,
     bots,
+    tasks,
+    llms,
+    llmDefaults,
     sceneContext,
     isContextLoading,
     contextError,
@@ -381,8 +436,13 @@ export const useBookStore = defineStore('book', () => {
     startGenerateChunkJob,
     fetchSceneContext,
     loadBots,
+    loadTasks,
+    loadLlmCatalog,
+    loadLlmDefaults,
     cancelGeneration,
     startSceneGeneration,
+    updateChunk,
+    fetchChunk,
     fetchVersions,
     restoreChunkVersion,
     deleteChunk

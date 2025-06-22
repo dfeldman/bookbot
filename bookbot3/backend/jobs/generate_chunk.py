@@ -15,6 +15,8 @@ from sqlalchemy.ext.mutable import MutableDict
 
 from backend.models import utcnow # Corrected import path
 from backend.models import Chunk, Job, JobLog, Book, db
+from backend.jobs.generate_chunk_utils import resolve_template_variables
+from backend.jobs.template_resolver import build_placeholder_values
 from backend.llm import LLMCall # This is the intended LLMCall (e.g., FakeLLMCall)
 
 # Local stub for specific testing scenarios if needed, distinct from the main LLMCall.
@@ -26,7 +28,7 @@ class LLMCallStub:
 
         self.model = kwargs.get('model', 'stub-default-model')
         self.api_key = kwargs.get('api_key', 'stub-no-key')
-        self.system_prompt = kwargs.get('system_prompt', 'Default system prompt for stub.')
+        self.system_prompt = self.bot_chunk.text if self.bot_chunk else 'Default system prompt for stub.'
         self.target_word_count = kwargs.get('target_word_count', 100)
         self.llm_params = kwargs.get('llm_params', {})
         
@@ -214,7 +216,24 @@ class GenerateChunkJob:
                 self.log(f"Warning: 'model_name' in bot_specific_props was an unexpected type ({type(raw_model_identifier)}). Value: '{str(raw_model_identifier)[:100]}'. Using default: {model_name}", level='WARNING')
 
             api_key_to_use = bot_specific_props.get('api_key', 'not-set-in-bot-props')
-            system_prompt_text = bot_specific_props.get('system_prompt', f"System prompt for {bot_specific_props.get('title', 'Unknown Bot')}: Generate content for mode '{self.props.get('mode')}'.")
+
+            # The bot's `text` field contains the system prompt/template.
+            system_prompt_template = bot_chunk.text or ""
+
+            # Build placeholder values using the new resolver
+            placeholder_values = build_placeholder_values(chunk, self.book)
+
+            # Resolve template variables for the prompt
+            prompt_template = bot_specific_props.get('prompt_template', '')
+            if not prompt_template:
+                self.log("No prompt template found in bot props, using chunk text as prompt.", level='WARNING')
+                prompt = chunk.text
+            else:
+                prompt = resolve_template_variables(prompt_template, placeholder_values)
+
+            # Resolve template variables for the system prompt
+            system_prompt_text = resolve_template_variables(system_prompt_template, placeholder_values)
+            
             target_words = chunk_specific_props.get('target_word_count', self.props.get('target_word_count', 250))
             other_llm_params = self.props.get('llm_params', {}).copy() # Start with user-defined params
             # Ensure default temperature if not provided by user, but prioritize user's setting

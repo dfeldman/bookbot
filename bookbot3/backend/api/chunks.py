@@ -40,7 +40,10 @@ def list_chunks(book_id: str):
 @chunk_api.route('/books/<book_id>/chunks', methods=['POST'])
 @require_edit_access()
 def create_chunk(book_id: str):
-    """Create a new chunk."""
+    """Create a new chunk.
+    
+    Note: `parent_id` is no longer supported and has been removed.
+    """
     book = db.session.get(Book, book_id)
     if not book:
         return jsonify({'error': 'Book not found'}), 404
@@ -63,6 +66,7 @@ def create_chunk(book_id: str):
         type=data.get('type'),
         order=data.get('order'),
         chapter=data.get('chapter'),
+
         word_count=word_count,
         version=1,
         is_latest=True
@@ -102,7 +106,10 @@ def get_chunk(chunk_id: str):
 
 @chunk_api.route('/chunks/<chunk_id>', methods=['PUT'])
 def update_chunk(chunk_id: str):
-    """Update a chunk (creates a new version)."""
+    """Update a chunk (creates a new version).
+
+    Note: `parent_id` is no longer supported and has been removed.
+    """
     # Get the latest version of the chunk
     current_chunk = Chunk.query.filter_by(
         chunk_id=chunk_id,
@@ -141,6 +148,7 @@ def update_chunk(chunk_id: str):
         type=data.get('type', current_chunk.type),
         order=data.get('order', current_chunk.order),
         chapter=data.get('chapter', current_chunk.chapter),
+
         word_count=word_count
     )
     
@@ -277,8 +285,9 @@ def get_chunk_context_api(book_id: str, chunk_id: str):
     if not chunk:
         return jsonify({'error': 'Chunk not found'}), 404
     
-    # Only provide context for scene chunks with a scene_id
-    if chunk.type != 'scene' or not chunk.props.get('scene_id'):
+    # Only provide context for scene chunks with an outline_section_id
+    outline_section_id = chunk.props.get('outline_section_id')
+    if chunk.type != 'scene' or not outline_section_id:
         return jsonify({
             'outline_section': '',
             'characters_sections': [],
@@ -286,9 +295,13 @@ def get_chunk_context_api(book_id: str, chunk_id: str):
             'tags': [],
             'available': False
         })
-    
+
+    # For backward compatibility with the frontend, add the old scene_id prop
+    if 'scene_id' not in chunk.props:
+        chunk.props['scene_id'] = f"Scene {outline_section_id}"
+
     try:
-        context = get_chunk_context(book_id, chunk.props['scene_id'])
+        context = get_chunk_context(book_id, outline_section_id)
         context['available'] = True
         return jsonify(context)
     except Exception as e:

@@ -1,8 +1,9 @@
 export interface Job {
   job_id: string;
   book_id: string;
+  chunk_id?: string | null;
   job_type: string;
-  state: 'pending' | 'running' | 'complete' | 'error' | 'cancelled' | 'waiting';
+  state: 'pending' | 'running' | 'completed' | 'failed' | 'error' | 'cancelled' | 'waiting';
   props?: Record<string, any>;
   result?: Record<string, any> | null;
   error_message?: string | null;
@@ -22,6 +23,8 @@ export interface Chunk {
   title: string;
   text: string;
   props?: Record<string, any>;
+  is_locked?: boolean;
+  locked_by_job_id?: string | null;
   is_deleted: boolean;
   is_latest: boolean;
   version: number;
@@ -47,19 +50,21 @@ export interface Book {
 export interface LLMInfo {
   id: string;
   name: string;
+  description: string;
   company: string;
-  cost_per_million_tokens_input: number;
-  cost_per_million_tokens_output: number;
+  router: string;
   context_length: number;
-  quality_score: number;
+  input_cost_per_mtok: number;
+  output_cost_per_mtok: number;
+  seconds_per_output_mtok: number;
   groups: string[];
+  quality_score: number;
 }
 
 export interface ContextData {
-  context_summary: string;
-  key_characters: any[];
-  key_locations: any[];
-  key_objects: any[];
-  style_guide: string;
-  timeline: any[];
+  available: boolean;
+  tags?: string[];
+  outline_section?: string;
+  characters_sections?: string[];
+  settings_sections?: string[];
 }
